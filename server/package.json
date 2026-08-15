@@ -1,13 +1,10 @@
 {
-  "name": "ctf-application-api",
+  "name": "ctf-vault-api",
   "version": "1.0.0",
-  "description": "Secure API Server for CTF Application",
+  "description": "Secure API Server for CTF Vault",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
-  },
-  "engines": {
-    "node": "20.x"
   },
   "dependencies": {
     "express": "^4.19.2",
