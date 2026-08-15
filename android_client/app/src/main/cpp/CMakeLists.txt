@@ -14,3 +14,7 @@ find_library(
 target_link_libraries(
         native-crypto
         ${log-lib})
+
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    target_link_options(native-crypto PRIVATE -s)
+endif()

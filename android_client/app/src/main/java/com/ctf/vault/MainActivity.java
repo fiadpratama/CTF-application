@@ -52,6 +52,8 @@ import javax.crypto.spec.SecretKeySpec;
 public class MainActivity extends AppCompatActivity {
 
     private static final String API_URL = "https://server-umber-eta.vercel.app/api/vault/stage1";
+
+    // --- UI Components ---
     private TextView terminalLog;
     private ScrollView scrollView;
     private LinearLayout mainRootLayout;
@@ -64,13 +66,14 @@ public class MainActivity extends AppCompatActivity {
     private EditText flagInput;
     private Button submitFlagBtn;
 
+    // --- State & Utilities ---
     private Handler handler = new Handler(Looper.getMainLooper());
     private Queue<Character> textQueue = new LinkedList<>();
     private boolean isTyping = false;
     private Random random = new Random();
-    
     private ToneGenerator toneGen;
 
+    // --- Native Library (JNI) ---
     static {
         System.loadLibrary("native-crypto");
     }
@@ -78,14 +81,15 @@ public class MainActivity extends AppCompatActivity {
     public native String getE2EKey();
     public native String getBackdoor();
 
+    // ==========================================
+    // LIFECYCLE
+    // ==========================================
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Init Audio
         toneGen = new ToneGenerator(AudioManager.STREAM_SYSTEM, 100);
 
-        // --- FULL SCREEN IMMERSIVE MODE ---
         getWindow().getDecorView().setSystemUiVisibility(
             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
             | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
@@ -100,15 +104,18 @@ public class MainActivity extends AppCompatActivity {
         appContainer.setOrientation(LinearLayout.VERTICAL);
         appContainer.setBackgroundColor(Color.parseColor("#0a0a0a"));
 
+        // --- Build screen layers in order ---
         setupBootScreen(appContainer);
         setupHonorScreen(appContainer);
         setupMainUI(appContainer);
         
         setContentView(appContainer);
-
         startBootSequence();
     }
 
+    // ==========================================
+    // UI SETUP
+    // ==========================================
     private void setupBootScreen(LinearLayout container) {
         bootLayout = new LinearLayout(this);
         bootLayout.setOrientation(LinearLayout.VERTICAL);
@@ -136,7 +143,7 @@ public class MainActivity extends AppCompatActivity {
         mainRootLayout.setVisibility(View.GONE);
 
         TextView titleText = new TextView(this);
-        titleText.setText("THE VAULT CTF");
+        titleText.setText("CTF APPLICATION");
         titleText.setTextColor(Color.parseColor("#00FF41"));
         titleText.setTextSize(32f);
         titleText.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
@@ -179,7 +186,6 @@ public class MainActivity extends AppCompatActivity {
         unlockButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // Suara klik tombol
                 if(toneGen != null) toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 50);
                 logToTerminal("> INITIATING SECURE CONNECTION...");
                 unlockVault();
@@ -208,7 +214,6 @@ public class MainActivity extends AppCompatActivity {
 
         mainRootLayout.addView(scrollView);
 
-        // --- NEW: FLAG INPUT UI ---
         flagInput = new EditText(this);
         flagInput.setHint("ENTER FINAL FLAG HERE...");
         flagInput.setTextColor(Color.parseColor("#00FF41"));
@@ -252,7 +257,7 @@ public class MainActivity extends AppCompatActivity {
                 if(toneGen != null) toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 50);
                 String flag = flagInput.getText().toString().trim();
                 if(flag.isEmpty()) return;
-                submitFlagBtn.setEnabled(false); // Lock button
+                submitFlagBtn.setEnabled(false);
                 logToTerminal("> VERIFYING FLAG WITH SERVER...");
                 verifyFlag(flag);
             }
@@ -262,8 +267,10 @@ public class MainActivity extends AppCompatActivity {
         container.addView(mainRootLayout);
     }
 
+    // ==========================================
+    // BOOT SEQUENCE
+    // ==========================================
     private void startBootSequence() {
-        // Boot sound
         if(toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ONE_MIN_BEEP, 300);
 
         java.util.List<String> bootLogs = new java.util.ArrayList<>();
@@ -291,7 +298,7 @@ public class MainActivity extends AppCompatActivity {
                     });
                 }
                 
-                final String baseText = "Booting Vault UI";
+                final String baseText = "Booting Application UI";
                 handler.post(new Runnable() {
                     @Override
                     public void run() {
@@ -342,7 +349,9 @@ public class MainActivity extends AppCompatActivity {
         }).start();
     }
 
-    // TYPEWRITER EFFECT
+    // ==========================================
+    // CORE LOGIC
+    // ==========================================
     private void logToTerminal(final String message) {
         String fullMessage = message + "\n";
         for (char c : fullMessage.toCharArray()) {
@@ -369,12 +378,11 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Randomized typing delay
         int randomDelay;
         if (random.nextFloat() > 0.95f) {
-            randomDelay = random.nextInt(50) + 20; // Slight stutter
+            randomDelay = random.nextInt(50) + 20;
         } else {
-            randomDelay = random.nextInt(10) + 2; // Super fast
+            randomDelay = random.nextInt(10) + 2;
         }
         
         handler.postDelayed(new Runnable() {
@@ -425,7 +433,7 @@ public class MainActivity extends AppCompatActivity {
                         logToTerminal("> EXTRACTING AES-GCM KEY FROM NATIVE ENCLAVE..."); 
                         simulateHexDump();
                     }});
-                    Thread.sleep(2000); // Simulate heavy process
+                    Thread.sleep(2000);
 
                     byte[] keyBytes = getE2EKey().getBytes("UTF-8");
                     
@@ -484,10 +492,9 @@ public class MainActivity extends AppCompatActivity {
                         public void run() { 
                             logToTerminal("> SERVER RESPONSE [" + responseCode + "]:\n> " + serverResponse); 
                             if (responseCode == 401) {
-                                // Error sound
                                 if(toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
                             }
-                            submitFlagBtn.setEnabled(true); // Unlock button
+                            submitFlagBtn.setEnabled(true); 
                         }
                     });
 
@@ -499,6 +506,9 @@ public class MainActivity extends AppCompatActivity {
         }).start();
     }
     
+    // ==========================================
+    // HONOR SCREEN
+    // ==========================================
     private void setupHonorScreen(LinearLayout container) {
         honorLayout = new LinearLayout(this);
         honorLayout.setOrientation(LinearLayout.VERTICAL);
@@ -516,7 +526,7 @@ public class MainActivity extends AppCompatActivity {
         honorScroll.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
-                return true; // Disable touch scrolling
+                return true;
             }
         });
 
@@ -525,11 +535,11 @@ public class MainActivity extends AppCompatActivity {
         scrollContent.setLayoutParams(new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         scrollContent.setGravity(Gravity.CENTER);
-        scrollContent.setPadding(0, 800, 0, 800); // Pad top and bottom to scroll smoothly
+        scrollContent.setPadding(0, 800, 0, 800);
 
         titleText = new TextView(this);
         titleText.setText("HALL OF FAME");
-        titleText.setTextColor(Color.parseColor("#FFD700")); // Gold
+        titleText.setTextColor(Color.parseColor("#FFD700"));
         titleText.setTextSize(36f);
         titleText.setTypeface(Typeface.SERIF, Typeface.BOLD);
         titleText.setGravity(Gravity.CENTER);
@@ -609,16 +619,13 @@ public class MainActivity extends AppCompatActivity {
         honorLayout.setVisibility(View.VISIBLE);
         honorText.setText(message);
 
-        // Latar belakang transisi dari hitam ke abu-abu gelap
         Animation bgAnim = new AlphaAnimation(0.0f, 1.0f);
         bgAnim.setDuration(5000);
         honorLayout.startAnimation(bgAnim);
 
-        // Animasi Title & Text (Fade in)
         honorLayout.setAlpha(0.0f);
         honorLayout.animate().alpha(1.0f).setDuration(5000).start();
 
-        // Auto Scroll Animation
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
@@ -627,14 +634,13 @@ public class MainActivity extends AppCompatActivity {
                 int maxScroll = content.getHeight() - scroll.getHeight();
                 if (maxScroll > 0) {
                     ObjectAnimator animator = ObjectAnimator.ofInt(scroll, "scrollY", 0, maxScroll);
-                    animator.setDuration(82000); // 82 seconds
+                    animator.setDuration(82000);
                     animator.setInterpolator(new LinearInterpolator());
                     animator.start();
                 }
             }
         }, 2000);
         
-        // Auto Fade Out ke Menu Awal setelah 87 detik
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
@@ -662,7 +668,7 @@ public class MainActivity extends AppCompatActivity {
                             mediaPlayer = null;
                         }
                         honorLayout.setVisibility(View.GONE);
-                        honorLayout.setAlpha(1.0f); // Kembalikan alpha
+                        honorLayout.setAlpha(1.0f);
                         
                         textQueue.clear();
                         isTyping = false;
@@ -703,6 +709,9 @@ public class MainActivity extends AppCompatActivity {
         handler.removeCallbacksAndMessages(null);
     }
 
+    // ==========================================
+    // SECURITY CHECKS
+    // ==========================================
     private boolean isEmulator() {
         return (android.os.Build.BRAND.startsWith("generic") && android.os.Build.DEVICE.startsWith("generic"))
             || android.os.Build.FINGERPRINT.startsWith("generic")
