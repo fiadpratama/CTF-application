@@ -1,6 +1,6 @@
 @echo off
 echo =======================================================
-echo          THE VAULT CTF - APK BUILDER
+echo          CTF APPLICATION - APK BUILDER
 echo =======================================================
 set "BASE_DIR=%~dp0"
 set "TOOLS_DIR=D:\Coding\Tools"
