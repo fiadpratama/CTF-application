@@ -1,4 +1,4 @@
-package com.ctf.vault;
+package io.github.fiadpratama.ctfapplication;
 
 import android.graphics.Color;
 import android.graphics.Typeface;

@@ -33,13 +33,13 @@ static std::string decrypt(const unsigned char* encrypted, size_t length) {
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_ctf_vault_MainActivity_getE2EKey(JNIEnv* env, jobject /* this */) {
+Java_io_github_fiadpratama_ctfapplication_MainActivity_getE2EKey(JNIEnv* env, jobject /* this */) {
     std::string key = decrypt(ENC_E2E_KEY, sizeof(ENC_E2E_KEY));
     return env->NewStringUTF(key.c_str());
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_ctf_vault_MainActivity_getBackdoor(JNIEnv* env, jobject /* this */) {
+Java_io_github_fiadpratama_ctfapplication_MainActivity_getBackdoor(JNIEnv* env, jobject /* this */) {
     std::string backdoor = decrypt(ENC_BACKDOOR, sizeof(ENC_BACKDOOR));
     return env->NewStringUTF(backdoor.c_str());
 }
