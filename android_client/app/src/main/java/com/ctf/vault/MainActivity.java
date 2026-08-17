@@ -19,15 +19,8 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.EditText;
-import android.widget.Toast;
-import android.net.Uri;
 import android.media.MediaPlayer;
 import androidx.appcompat.app.AppCompatActivity;
-import android.provider.Settings;
-import android.content.Intent;
-import android.view.WindowManager;
-import android.graphics.PixelFormat;
-import android.content.res.AssetFileDescriptor;
 
 import android.animation.ObjectAnimator;
 import android.view.animation.LinearInterpolator;
@@ -51,7 +44,29 @@ import javax.crypto.spec.SecretKeySpec;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String API_URL = "https://server-umber-eta.vercel.app/api/vault/stage1";
+    // --- API Endpoints ---
+    private static final String BASE_URL = "https://server-umber-eta.vercel.app/api/vault";
+    private static final String STAGE1_URL = BASE_URL + "/stage1";
+    private static final String VERIFY_FLAG_URL = BASE_URL + "/verify-flag";
+
+    // --- UI Dimension Constants (dp) ---
+    private static final int PADDING_BOOT_H_DP = 6;
+    private static final int PADDING_BOOT_TOP_DP = 12;
+    private static final int PADDING_ROOT_H_DP = 18;
+    private static final int PADDING_ROOT_TOP_DP = 30;
+    private static final int PADDING_ROOT_BOTTOM_DP = 18;
+    private static final int SUBTITLE_PADDING_TOP_DP = 6;
+    private static final int SUBTITLE_PADDING_BOTTOM_DP = 24;
+    private static final int BUTTON_HEIGHT_DP = 45;
+    private static final int BUTTON_MARGIN_BOTTOM_DP = 24;
+    private static final int TERMINAL_PADDING_DP = 9;
+    private static final int INPUT_PADDING_DP = 6;
+    private static final int INPUT_MARGIN_TOP_DP = 12;
+    private static final int INPUT_MARGIN_BOTTOM_DP = 6;
+    private static final int HONOR_PADDING_H_DP = 12;
+    private static final int HONOR_PADDING_TOP_DP = 24;
+    private static final int HONOR_SCROLL_PADDING_DP = 240;
+    private static final int HONOR_TEXT_PADDING_TOP_DP = 18;
 
     // --- UI Components ---
     private TextView terminalLog;
@@ -61,7 +76,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView bootText;
     private LinearLayout honorLayout;
     private TextView honorText;
-    private TextView titleText;
+    private TextView honorTitleText;
     private MediaPlayer mediaPlayer;
     private EditText flagInput;
     private Button submitFlagBtn;
@@ -108,9 +123,17 @@ public class MainActivity extends AppCompatActivity {
         setupBootScreen(appContainer);
         setupHonorScreen(appContainer);
         setupMainUI(appContainer);
-        
+
         setContentView(appContainer);
         startBootSequence();
+    }
+
+    // ==========================================
+    // UI UNIT CONVERSION
+    // ==========================================
+    private int dpToPx(int dp) {
+        float density = getResources().getDisplayMetrics().density;
+        return Math.round(dp * density);
     }
 
     // ==========================================
@@ -122,7 +145,9 @@ public class MainActivity extends AppCompatActivity {
         bootLayout.setLayoutParams(new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
         bootLayout.setBackgroundColor(Color.parseColor("#000000"));
-        bootLayout.setPadding(20, 40, 20, 20);
+        bootLayout.setPadding(
+            dpToPx(PADDING_BOOT_H_DP), dpToPx(PADDING_BOOT_TOP_DP),
+            dpToPx(PADDING_BOOT_H_DP), dpToPx(PADDING_BOOT_H_DP));
 
         bootText = new TextView(this);
         bootText.setTextColor(Color.parseColor("#00FF41"));
@@ -138,56 +163,58 @@ public class MainActivity extends AppCompatActivity {
         mainRootLayout.setOrientation(LinearLayout.VERTICAL);
         mainRootLayout.setLayoutParams(new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
-        mainRootLayout.setPadding(60, 100, 60, 60);
+        mainRootLayout.setPadding(
+            dpToPx(PADDING_ROOT_H_DP), dpToPx(PADDING_ROOT_TOP_DP),
+            dpToPx(PADDING_ROOT_H_DP), dpToPx(PADDING_ROOT_BOTTOM_DP));
         mainRootLayout.setGravity(Gravity.CENTER_HORIZONTAL);
         mainRootLayout.setVisibility(View.GONE);
 
-        TextView titleText = new TextView(this);
-        titleText.setText("CTF APPLICATION");
-        titleText.setTextColor(Color.parseColor("#00FF41"));
-        titleText.setTextSize(32f);
-        titleText.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-        titleText.setGravity(Gravity.CENTER);
-        titleText.setLetterSpacing(0.2f);
-        
+        TextView mainTitleText = new TextView(this);
+        mainTitleText.setText(getString(R.string.main_title));
+        mainTitleText.setTextColor(Color.parseColor("#00FF41"));
+        mainTitleText.setTextSize(32f);
+        mainTitleText.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        mainTitleText.setGravity(Gravity.CENTER);
+        mainTitleText.setLetterSpacing(0.2f);
+
         Animation anim = new AlphaAnimation(0.3f, 1.0f);
         anim.setDuration(1500);
         anim.setRepeatMode(Animation.REVERSE);
         anim.setRepeatCount(Animation.INFINITE);
-        titleText.startAnimation(anim);
-        mainRootLayout.addView(titleText);
+        mainTitleText.startAnimation(anim);
+        mainRootLayout.addView(mainTitleText);
 
         TextView subText = new TextView(this);
-        subText.setText("SECURE MILITARY-GRADE ENCRYPTION\nPROCEED WITH CAUTION");
+        subText.setText(getString(R.string.main_subtitle));
         subText.setTextColor(Color.parseColor("#008F11"));
         subText.setTextSize(12f);
         subText.setTypeface(Typeface.MONOSPACE);
         subText.setGravity(Gravity.CENTER);
-        subText.setPadding(0, 20, 0, 80);
+        subText.setPadding(0, dpToPx(SUBTITLE_PADDING_TOP_DP), 0, dpToPx(SUBTITLE_PADDING_BOTTOM_DP));
         mainRootLayout.addView(subText);
 
         Button unlockButton = new Button(this);
-        unlockButton.setText("INITIATE DECRYPTION");
+        unlockButton.setText(getString(R.string.btn_initiate_decryption));
         unlockButton.setTextColor(Color.parseColor("#0a0a0a"));
         unlockButton.setTextSize(16f);
         unlockButton.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-        
+
         GradientDrawable btnShape = new GradientDrawable();
         btnShape.setShape(GradientDrawable.RECTANGLE);
         btnShape.setCornerRadius(10f);
         btnShape.setColor(Color.parseColor("#00FF41"));
         unlockButton.setBackground(btnShape);
-        
+
         LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 150);
-        btnParams.setMargins(0, 0, 0, 80);
+                LinearLayout.LayoutParams.MATCH_PARENT, dpToPx(BUTTON_HEIGHT_DP));
+        btnParams.setMargins(0, 0, 0, dpToPx(BUTTON_MARGIN_BOTTOM_DP));
         unlockButton.setLayoutParams(btnParams);
 
         unlockButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if(toneGen != null) toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 50);
-                logToTerminal("> INITIATING SECURE CONNECTION...");
+                logToTerminal(getString(R.string.log_initiating_connection));
                 unlockVault();
             }
         });
@@ -197,14 +224,16 @@ public class MainActivity extends AppCompatActivity {
         LinearLayout.LayoutParams scrollParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1.0f);
         scrollView.setLayoutParams(scrollParams);
-        
+
         GradientDrawable terminalShape = new GradientDrawable();
         terminalShape.setShape(GradientDrawable.RECTANGLE);
         terminalShape.setColor(Color.parseColor("#000000"));
         terminalShape.setStroke(2, Color.parseColor("#008F11"));
         terminalShape.setCornerRadius(15f);
         scrollView.setBackground(terminalShape);
-        scrollView.setPadding(30, 30, 30, 30);
+        scrollView.setPadding(
+            dpToPx(TERMINAL_PADDING_DP), dpToPx(TERMINAL_PADDING_DP),
+            dpToPx(TERMINAL_PADDING_DP), dpToPx(TERMINAL_PADDING_DP));
 
         terminalLog = new TextView(this);
         terminalLog.setTextColor(Color.parseColor("#00FF41"));
@@ -215,42 +244,44 @@ public class MainActivity extends AppCompatActivity {
         mainRootLayout.addView(scrollView);
 
         flagInput = new EditText(this);
-        flagInput.setHint("ENTER FINAL FLAG HERE...");
+        flagInput.setHint(getString(R.string.flag_input_hint));
         flagInput.setTextColor(Color.parseColor("#00FF41"));
         flagInput.setHintTextColor(Color.parseColor("#008F11"));
         flagInput.setTextSize(14f);
         flagInput.setTypeface(Typeface.MONOSPACE);
-        
+
         GradientDrawable inputShape = new GradientDrawable();
         inputShape.setShape(GradientDrawable.RECTANGLE);
         inputShape.setStroke(2, Color.parseColor("#00FF41"));
         inputShape.setCornerRadius(10f);
         flagInput.setBackground(inputShape);
-        flagInput.setPadding(20, 20, 20, 20);
-        
+        flagInput.setPadding(
+            dpToPx(INPUT_PADDING_DP), dpToPx(INPUT_PADDING_DP),
+            dpToPx(INPUT_PADDING_DP), dpToPx(INPUT_PADDING_DP));
+
         LinearLayout.LayoutParams inputParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        inputParams.setMargins(0, 40, 0, 20);
+        inputParams.setMargins(0, dpToPx(INPUT_MARGIN_TOP_DP), 0, dpToPx(INPUT_MARGIN_BOTTOM_DP));
         flagInput.setLayoutParams(inputParams);
-        
+
         mainRootLayout.addView(flagInput);
 
         submitFlagBtn = new Button(this);
-        submitFlagBtn.setText("SUBMIT FLAG");
+        submitFlagBtn.setText(getString(R.string.btn_submit_flag));
         submitFlagBtn.setTextColor(Color.parseColor("#0a0a0a"));
         submitFlagBtn.setTextSize(16f);
         submitFlagBtn.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-        
+
         GradientDrawable btnShape2 = new GradientDrawable();
         btnShape2.setShape(GradientDrawable.RECTANGLE);
         btnShape2.setCornerRadius(10f);
         btnShape2.setColor(Color.parseColor("#00FF41"));
         submitFlagBtn.setBackground(btnShape2);
-        
+
         LinearLayout.LayoutParams submitParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 150);
+                LinearLayout.LayoutParams.MATCH_PARENT, dpToPx(BUTTON_HEIGHT_DP));
         submitFlagBtn.setLayoutParams(submitParams);
-        
+
         submitFlagBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -258,7 +289,7 @@ public class MainActivity extends AppCompatActivity {
                 String flag = flagInput.getText().toString().trim();
                 if(flag.isEmpty()) return;
                 submitFlagBtn.setEnabled(false);
-                logToTerminal("> VERIFYING FLAG WITH SERVER...");
+                logToTerminal(getString(R.string.log_verifying_flag));
                 verifyFlag(flag);
             }
         });
@@ -297,8 +328,8 @@ public class MainActivity extends AppCompatActivity {
                         }
                     });
                 }
-                
-                final String baseText = "Booting Application UI";
+
+                final String baseText = getString(R.string.log_booting_ui);
                 handler.post(new Runnable() {
                     @Override
                     public void run() {
@@ -327,7 +358,7 @@ public class MainActivity extends AppCompatActivity {
                         });
                     }
                 }
-                
+
                 try { Thread.sleep(500); } catch (Exception e) {}
                 handler.post(new Runnable() {
                     @Override
@@ -335,14 +366,14 @@ public class MainActivity extends AppCompatActivity {
                         bootText.append(" OK\n");
                     }
                 });
-                
+
                 try { Thread.sleep(800); } catch (Exception e) {}
                 handler.post(new Runnable() {
                     @Override
                     public void run() {
                         bootLayout.setVisibility(View.GONE);
                         mainRootLayout.setVisibility(View.VISIBLE);
-                        logToTerminal("> SYSTEM IDLE\n> WAITING FOR COMMAND...");
+                        logToTerminal(getString(R.string.log_system_idle));
                     }
                 });
             }
@@ -370,7 +401,7 @@ public class MainActivity extends AppCompatActivity {
         isTyping = true;
         char c = textQueue.poll();
         terminalLog.append(String.valueOf(c));
-        
+
         scrollView.post(new Runnable() {
             @Override
             public void run() {
@@ -384,7 +415,7 @@ public class MainActivity extends AppCompatActivity {
         } else {
             randomDelay = random.nextInt(10) + 2;
         }
-        
+
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
@@ -410,7 +441,7 @@ public class MainActivity extends AppCompatActivity {
             public void run() {
                 try {
                     Thread.sleep(500);
-                    handler.post(new Runnable() { @Override public void run() { logToTerminal("> GENERATING TIME-SYNC TOKEN..."); }});
+                    handler.post(new Runnable() { @Override public void run() { logToTerminal(getString(R.string.log_generating_token)); }});
                     Thread.sleep(700);
 
                     String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
@@ -425,28 +456,28 @@ public class MainActivity extends AppCompatActivity {
                     JSONObject payloadJson = new JSONObject();
                     payloadJson.put("timestamp", timestamp);
                     payloadJson.put("hash", hexString.toString());
-                    
-                    handler.post(new Runnable() { @Override public void run() { logToTerminal("> LOAD JNI NATIVE LIBRARY [libnative-crypto.so]..."); }});
+
+                    handler.post(new Runnable() { @Override public void run() { logToTerminal(getString(R.string.log_loading_native_lib)); }});
                     Thread.sleep(800);
-                    
-                    handler.post(new Runnable() { @Override public void run() { 
-                        logToTerminal("> EXTRACTING AES-GCM KEY FROM NATIVE ENCLAVE..."); 
+
+                    handler.post(new Runnable() { @Override public void run() {
+                        logToTerminal(getString(R.string.log_extracting_key));
                         simulateHexDump();
                     }});
                     Thread.sleep(2000);
 
                     byte[] keyBytes = getE2EKey().getBytes("UTF-8");
-                    
-                    handler.post(new Runnable() { @Override public void run() { logToTerminal("> ENCRYPTING PAYLOAD (AES-256-GCM)..."); }});
+
+                    handler.post(new Runnable() { @Override public void run() { logToTerminal(getString(R.string.log_encrypting_payload)); }});
                     Thread.sleep(800);
 
                     byte[] iv = new byte[12];
                     new SecureRandom().nextBytes(iv);
-                    
+
                     SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "AES");
                     Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
                     cipher.init(Cipher.ENCRYPT_MODE, secretKey, new GCMParameterSpec(128, iv));
-                    
+
                     byte[] encryptedData = cipher.doFinal(payloadJson.toString().getBytes("UTF-8"));
                     JSONObject encryptedPayload = new JSONObject();
                     int tagLength = 16;
@@ -454,15 +485,15 @@ public class MainActivity extends AppCompatActivity {
                     byte[] tag = new byte[tagLength];
                     System.arraycopy(encryptedData, 0, cipherText, 0, cipherText.length);
                     System.arraycopy(encryptedData, cipherText.length, tag, 0, tagLength);
-                    
+
                     encryptedPayload.put("payload", Base64.encodeToString(cipherText, Base64.NO_WRAP));
                     encryptedPayload.put("iv", Base64.encodeToString(iv, Base64.NO_WRAP));
                     encryptedPayload.put("tag", Base64.encodeToString(tag, Base64.NO_WRAP));
 
-                    handler.post(new Runnable() { @Override public void run() { logToTerminal("> TRANSMITTING TO VAULT SERVER..."); }});
+                    handler.post(new Runnable() { @Override public void run() { logToTerminal(getString(R.string.log_transmitting)); }});
                     Thread.sleep(800);
 
-                    URL url = new URL(API_URL);
+                    URL url = new URL(STAGE1_URL);
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setConnectTimeout(3000);
                     conn.setReadTimeout(3000);
@@ -486,15 +517,15 @@ public class MainActivity extends AppCompatActivity {
                     in.close();
 
                     final String serverResponse = response.toString();
-                    
-                    handler.post(new Runnable() { 
-                        @Override 
-                        public void run() { 
-                            logToTerminal("> SERVER RESPONSE [" + responseCode + "]:\n> " + serverResponse); 
+
+                    handler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            logToTerminal("> SERVER RESPONSE [" + responseCode + "]:\n> " + serverResponse);
                             if (responseCode == 401) {
                                 if(toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
                             }
-                            submitFlagBtn.setEnabled(true); 
+                            submitFlagBtn.setEnabled(true);
                         }
                     });
 
@@ -505,7 +536,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }).start();
     }
-    
+
     // ==========================================
     // HONOR SCREEN
     // ==========================================
@@ -515,7 +546,9 @@ public class MainActivity extends AppCompatActivity {
         honorLayout.setLayoutParams(new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
         honorLayout.setBackgroundColor(Color.parseColor("#050505"));
-        honorLayout.setPadding(40, 80, 40, 40);
+        honorLayout.setPadding(
+            dpToPx(HONOR_PADDING_H_DP), dpToPx(HONOR_PADDING_TOP_DP),
+            dpToPx(HONOR_PADDING_H_DP), dpToPx(HONOR_PADDING_H_DP));
         honorLayout.setGravity(Gravity.CENTER);
         honorLayout.setVisibility(View.GONE);
 
@@ -535,25 +568,25 @@ public class MainActivity extends AppCompatActivity {
         scrollContent.setLayoutParams(new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         scrollContent.setGravity(Gravity.CENTER);
-        scrollContent.setPadding(0, 800, 0, 800);
+        scrollContent.setPadding(0, dpToPx(HONOR_SCROLL_PADDING_DP), 0, dpToPx(HONOR_SCROLL_PADDING_DP));
 
-        titleText = new TextView(this);
-        titleText.setText("HALL OF FAME");
-        titleText.setTextColor(Color.parseColor("#FFD700"));
-        titleText.setTextSize(36f);
-        titleText.setTypeface(Typeface.SERIF, Typeface.BOLD);
-        titleText.setGravity(Gravity.CENTER);
-        
-        scrollContent.addView(titleText);
+        honorTitleText = new TextView(this);
+        honorTitleText.setText(getString(R.string.honor_title));
+        honorTitleText.setTextColor(Color.parseColor("#FFD700"));
+        honorTitleText.setTextSize(36f);
+        honorTitleText.setTypeface(Typeface.SERIF, Typeface.BOLD);
+        honorTitleText.setGravity(Gravity.CENTER);
+
+        scrollContent.addView(honorTitleText);
 
         honorText = new TextView(this);
         honorText.setTextColor(Color.parseColor("#E0E0E0"));
         honorText.setTextSize(16f);
         honorText.setTypeface(Typeface.SERIF);
         honorText.setGravity(Gravity.CENTER);
-        honorText.setPadding(0, 60, 0, 0);
+        honorText.setPadding(0, dpToPx(HONOR_TEXT_PADDING_TOP_DP), 0, 0);
         honorText.setLineSpacing(1.5f, 1.5f);
-        
+
         scrollContent.addView(honorText);
         honorScroll.addView(scrollContent);
         honorLayout.addView(honorScroll);
@@ -565,7 +598,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 try {
-                    URL url = new URL("https://server-umber-eta.vercel.app/api/vault/verify-flag");
+                    URL url = new URL(VERIFY_FLAG_URL);
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setConnectTimeout(5000);
                     conn.setReadTimeout(5000);
@@ -590,7 +623,7 @@ public class MainActivity extends AppCompatActivity {
                     in.close();
 
                     final String serverResponse = response.toString();
-                    
+
                     handler.post(new Runnable() {
                         @Override
                         public void run() {
@@ -600,7 +633,7 @@ public class MainActivity extends AppCompatActivity {
                                     showHonorScreen(resJson.getString("message"));
                                 } catch(Exception e){}
                             } else {
-                                logToTerminal("> VERIFICATION FAILED: INVALID FLAG.");
+                                logToTerminal(getString(R.string.log_verification_failed));
                                 if(toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
                                 submitFlagBtn.setEnabled(true);
                             }
@@ -640,7 +673,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         }, 2000);
-        
+
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
@@ -669,13 +702,13 @@ public class MainActivity extends AppCompatActivity {
                         }
                         honorLayout.setVisibility(View.GONE);
                         honorLayout.setAlpha(1.0f);
-                        
+
                         textQueue.clear();
                         isTyping = false;
                         terminalLog.setText("");
-                        
+
                         mainRootLayout.setVisibility(View.VISIBLE);
-                        logToTerminal("> SYSTEM REBOOTED.\n> WAITING FOR COMMAND...");
+                        logToTerminal(getString(R.string.log_system_rebooted));
                     }
                 }).start();
             }
