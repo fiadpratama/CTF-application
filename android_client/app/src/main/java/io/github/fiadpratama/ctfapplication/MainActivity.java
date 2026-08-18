@@ -8,7 +8,6 @@ import android.media.ToneGenerator;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Base64;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
@@ -27,27 +26,14 @@ import android.view.animation.LinearInterpolator;
 
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
-import java.util.LinkedList;
-import java.util.Queue;
 import java.util.Random;
 
-import javax.crypto.Cipher;
-import javax.crypto.spec.GCMParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
+import io.github.fiadpratama.ctfapplication.crypto.CryptoHelper;
+import io.github.fiadpratama.ctfapplication.network.VaultApiClient;
+import io.github.fiadpratama.ctfapplication.ui.TerminalLogger;
+import io.github.fiadpratama.ctfapplication.util.SecurityChecks;
 
 public class MainActivity extends AppCompatActivity {
-
-    // --- API Endpoints ---
-    private static final String BASE_URL = "https://server-umber-eta.vercel.app/api/vault";
-    private static final String STAGE1_URL = BASE_URL + "/stage1";
-    private static final String VERIFY_FLAG_URL = BASE_URL + "/verify-flag";
 
     // --- UI Dimension Constants (dp) ---
     private static final int PADDING_BOOT_H_DP = 6;
@@ -83,10 +69,9 @@ public class MainActivity extends AppCompatActivity {
 
     // --- State & Utilities ---
     private Handler handler = new Handler(Looper.getMainLooper());
-    private Queue<Character> textQueue = new LinkedList<>();
-    private boolean isTyping = false;
     private Random random = new Random();
     private ToneGenerator toneGen;
+    private TerminalLogger terminalLogger;
 
     // --- Native Library (JNI) ---
     static {
@@ -125,6 +110,9 @@ public class MainActivity extends AppCompatActivity {
         setupMainUI(appContainer);
 
         setContentView(appContainer);
+
+        terminalLogger = new TerminalLogger(terminalLog, scrollView, handler);
+
         startBootSequence();
     }
 
@@ -213,8 +201,8 @@ public class MainActivity extends AppCompatActivity {
         unlockButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(toneGen != null) toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 50);
-                logToTerminal(getString(R.string.log_initiating_connection));
+                if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 50);
+                terminalLogger.log(getString(R.string.log_initiating_connection));
                 unlockVault();
             }
         });
@@ -285,11 +273,11 @@ public class MainActivity extends AppCompatActivity {
         submitFlagBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(toneGen != null) toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 50);
+                if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 50);
                 String flag = flagInput.getText().toString().trim();
-                if(flag.isEmpty()) return;
+                if (flag.isEmpty()) return;
                 submitFlagBtn.setEnabled(false);
-                logToTerminal(getString(R.string.log_verifying_flag));
+                terminalLogger.log(getString(R.string.log_verifying_flag));
                 verifyFlag(flag);
             }
         });
@@ -302,13 +290,13 @@ public class MainActivity extends AppCompatActivity {
     // BOOT SEQUENCE
     // ==========================================
     private void startBootSequence() {
-        if(toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ONE_MIN_BEEP, 300);
+        if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ONE_MIN_BEEP, 300);
 
         java.util.List<String> bootLogs = new java.util.ArrayList<>();
         bootLogs.add("Initializing kernel... OK");
         bootLogs.add("Mounting /dev/block/bootdevice... OK");
-        bootLogs.add("Checking Virtual Machine environment... " + (isEmulator() ? "EMULATOR DETECTED [BYPASSED]" : "CLEAN"));
-        bootLogs.add("Checking Root privileges... " + (isRooted() ? "ROOTED DEVICE DETECTED [BYPASSED]" : "CLEAN"));
+        bootLogs.add("Checking Virtual Machine environment... " + (SecurityChecks.isEmulator() ? "EMULATOR DETECTED [BYPASSED]" : "CLEAN"));
+        bootLogs.add("Checking Root privileges... " + (SecurityChecks.isRooted() ? "ROOTED DEVICE DETECTED [BYPASSED]" : "CLEAN"));
         bootLogs.add("Loading cryptography modules... OK");
         bootLogs.add("Establishing secure proxy... OK");
         bootLogs.add("WARNING: Hostile environment detected.");
@@ -373,7 +361,7 @@ public class MainActivity extends AppCompatActivity {
                     public void run() {
                         bootLayout.setVisibility(View.GONE);
                         mainRootLayout.setVisibility(View.VISIBLE);
-                        logToTerminal(getString(R.string.log_system_idle));
+                        terminalLogger.log(getString(R.string.log_system_idle));
                     }
                 });
             }
@@ -383,55 +371,14 @@ public class MainActivity extends AppCompatActivity {
     // ==========================================
     // CORE LOGIC
     // ==========================================
-    private void logToTerminal(final String message) {
-        String fullMessage = message + "\n";
-        for (char c : fullMessage.toCharArray()) {
-            textQueue.add(c);
-        }
-        if (!isTyping) {
-            typeNextCharacter();
-        }
-    }
-
-    private void typeNextCharacter() {
-        if (textQueue.isEmpty()) {
-            isTyping = false;
-            return;
-        }
-        isTyping = true;
-        char c = textQueue.poll();
-        terminalLog.append(String.valueOf(c));
-
-        scrollView.post(new Runnable() {
-            @Override
-            public void run() {
-                scrollView.fullScroll(View.FOCUS_DOWN);
-            }
-        });
-
-        int randomDelay;
-        if (random.nextFloat() > 0.95f) {
-            randomDelay = random.nextInt(50) + 20;
-        } else {
-            randomDelay = random.nextInt(10) + 2;
-        }
-
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                typeNextCharacter();
-            }
-        }, randomDelay);
-    }
-
     private void simulateHexDump() {
-        for(int i = 0; i < 6; i++) {
+        for (int i = 0; i < 6; i++) {
             StringBuilder hexLine = new StringBuilder("[0x" + Integer.toHexString(0x7F000 + random.nextInt(0x1000)).toUpperCase() + "] : ");
-            for(int j = 0; j < 8; j++) {
+            for (int j = 0; j < 8; j++) {
                 hexLine.append(Integer.toHexString(random.nextInt(256)).toUpperCase() + " ");
             }
             hexLine.append("... (DECODING)");
-            logToTerminal(hexLine.toString());
+            terminalLogger.log(hexLine.toString());
         }
     }
 
@@ -441,97 +388,65 @@ public class MainActivity extends AppCompatActivity {
             public void run() {
                 try {
                     Thread.sleep(500);
-                    handler.post(new Runnable() { @Override public void run() { logToTerminal(getString(R.string.log_generating_token)); }});
+                    handler.post(new Runnable() { @Override public void run() { terminalLogger.log(getString(R.string.log_generating_token)); }});
                     Thread.sleep(700);
 
                     String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
-                    MessageDigest digest = MessageDigest.getInstance("SHA-256");
-                    byte[] hashBytes = digest.digest((timestamp + "V4ult_S3cr3t_S4lt_9921").getBytes("UTF-8"));
-                    StringBuilder hexString = new StringBuilder();
-                    for (byte b : hashBytes) {
-                        String hex = Integer.toHexString(0xff & b);
-                        if(hex.length() == 1) hexString.append('0');
-                        hexString.append(hex);
-                    }
+                    String hash = CryptoHelper.computeTimestampHash(timestamp);
+
                     JSONObject payloadJson = new JSONObject();
                     payloadJson.put("timestamp", timestamp);
-                    payloadJson.put("hash", hexString.toString());
+                    payloadJson.put("hash", hash);
 
-                    handler.post(new Runnable() { @Override public void run() { logToTerminal(getString(R.string.log_loading_native_lib)); }});
+                    handler.post(new Runnable() { @Override public void run() { terminalLogger.log(getString(R.string.log_loading_native_lib)); }});
                     Thread.sleep(800);
 
                     handler.post(new Runnable() { @Override public void run() {
-                        logToTerminal(getString(R.string.log_extracting_key));
+                        terminalLogger.log(getString(R.string.log_extracting_key));
                         simulateHexDump();
                     }});
                     Thread.sleep(2000);
 
                     byte[] keyBytes = getE2EKey().getBytes("UTF-8");
 
-                    handler.post(new Runnable() { @Override public void run() { logToTerminal(getString(R.string.log_encrypting_payload)); }});
+                    handler.post(new Runnable() { @Override public void run() { terminalLogger.log(getString(R.string.log_encrypting_payload)); }});
                     Thread.sleep(800);
 
-                    byte[] iv = new byte[12];
-                    new SecureRandom().nextBytes(iv);
+                    JSONObject encryptedPayload = CryptoHelper.encryptPayload(payloadJson, keyBytes);
 
-                    SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "AES");
-                    Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-                    cipher.init(Cipher.ENCRYPT_MODE, secretKey, new GCMParameterSpec(128, iv));
-
-                    byte[] encryptedData = cipher.doFinal(payloadJson.toString().getBytes("UTF-8"));
-                    JSONObject encryptedPayload = new JSONObject();
-                    int tagLength = 16;
-                    byte[] cipherText = new byte[encryptedData.length - tagLength];
-                    byte[] tag = new byte[tagLength];
-                    System.arraycopy(encryptedData, 0, cipherText, 0, cipherText.length);
-                    System.arraycopy(encryptedData, cipherText.length, tag, 0, tagLength);
-
-                    encryptedPayload.put("payload", Base64.encodeToString(cipherText, Base64.NO_WRAP));
-                    encryptedPayload.put("iv", Base64.encodeToString(iv, Base64.NO_WRAP));
-                    encryptedPayload.put("tag", Base64.encodeToString(tag, Base64.NO_WRAP));
-
-                    handler.post(new Runnable() { @Override public void run() { logToTerminal(getString(R.string.log_transmitting)); }});
+                    handler.post(new Runnable() { @Override public void run() { terminalLogger.log(getString(R.string.log_transmitting)); }});
                     Thread.sleep(800);
 
-                    URL url = new URL(STAGE1_URL);
-                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                    conn.setConnectTimeout(3000);
-                    conn.setReadTimeout(3000);
-                    conn.setRequestMethod("POST");
-                    conn.setRequestProperty("Content-Type", "application/json");
-                    conn.setDoOutput(true);
-
-                    OutputStream os = conn.getOutputStream();
-                    os.write(encryptedPayload.toString().getBytes("UTF-8"));
-                    os.flush();
-                    os.close();
-
-                    final int responseCode = conn.getResponseCode();
-                    BufferedReader in = new BufferedReader(new InputStreamReader(
-                            responseCode == 200 ? conn.getInputStream() : conn.getErrorStream()));
-                    StringBuilder response = new StringBuilder();
-                    String line;
-                    while ((line = in.readLine()) != null) {
-                        response.append(line);
-                    }
-                    in.close();
-
-                    final String serverResponse = response.toString();
-
-                    handler.post(new Runnable() {
+                    VaultApiClient.postJson(VaultApiClient.STAGE1_URL, encryptedPayload, new VaultApiClient.ApiCallback() {
                         @Override
-                        public void run() {
-                            logToTerminal("> SERVER RESPONSE [" + responseCode + "]:\n> " + serverResponse);
-                            if (responseCode == 401) {
-                                if(toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
-                            }
-                            submitFlagBtn.setEnabled(true);
+                        public void onResponse(final int responseCode, final String body) {
+                            handler.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    terminalLogger.log("> SERVER RESPONSE [" + responseCode + "]:\n> " + body);
+                                    if (responseCode == 401) {
+                                        if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
+                                    }
+                                    submitFlagBtn.setEnabled(true);
+                                }
+                            });
+                        }
+
+                        @Override
+                        public void onError(final String message) {
+                            handler.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    terminalLogger.log("> FATAL ERROR: " + message);
+                                    submitFlagBtn.setEnabled(true);
+                                }
+                            });
                         }
                     });
 
                 } catch (Exception e) {
                     final String err = e.getMessage();
-                    handler.post(new Runnable() { @Override public void run() { logToTerminal("> FATAL ERROR: " + err); submitFlagBtn.setEnabled(true); }});
+                    handler.post(new Runnable() { @Override public void run() { terminalLogger.log("> FATAL ERROR: " + err); submitFlagBtn.setEnabled(true); }});
                 }
             }
         }).start();
@@ -597,52 +512,44 @@ public class MainActivity extends AppCompatActivity {
         new Thread(new Runnable() {
             @Override
             public void run() {
+                JSONObject json = new JSONObject();
                 try {
-                    URL url = new URL(VERIFY_FLAG_URL);
-                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                    conn.setConnectTimeout(5000);
-                    conn.setReadTimeout(5000);
-                    conn.setRequestMethod("POST");
-                    conn.setRequestProperty("Content-Type", "application/json");
-                    conn.setDoOutput(true);
-
-                    JSONObject json = new JSONObject();
                     json.put("flag", flag);
+                } catch (Exception e) {
+                    return;
+                }
 
-                    OutputStream os = conn.getOutputStream();
-                    os.write(json.toString().getBytes("UTF-8"));
-                    os.flush();
-                    os.close();
+                VaultApiClient.postJson(VaultApiClient.VERIFY_FLAG_URL, json, new VaultApiClient.ApiCallback() {
+                    @Override
+                    public void onResponse(final int responseCode, final String body) {
+                        handler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (responseCode == 200) {
+                                    try {
+                                        JSONObject resJson = new JSONObject(body);
+                                        showHonorScreen(resJson.getString("message"));
+                                    } catch (Exception e) {}
+                                } else {
+                                    terminalLogger.log(getString(R.string.log_verification_failed));
+                                    if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
+                                    submitFlagBtn.setEnabled(true);
+                                }
+                            }
+                        });
+                    }
 
-                    final int responseCode = conn.getResponseCode();
-                    BufferedReader in = new BufferedReader(new InputStreamReader(
-                            responseCode == 200 ? conn.getInputStream() : conn.getErrorStream()));
-                    StringBuilder response = new StringBuilder();
-                    String line;
-                    while ((line = in.readLine()) != null) response.append(line);
-                    in.close();
-
-                    final String serverResponse = response.toString();
-
-                    handler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (responseCode == 200) {
-                                try {
-                                    JSONObject resJson = new JSONObject(serverResponse);
-                                    showHonorScreen(resJson.getString("message"));
-                                } catch(Exception e){}
-                            } else {
-                                logToTerminal(getString(R.string.log_verification_failed));
-                                if(toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
+                    @Override
+                    public void onError(final String message) {
+                        handler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                terminalLogger.log("> ERROR: " + message);
                                 submitFlagBtn.setEnabled(true);
                             }
-                        }
-                    });
-                } catch (Exception e) {
-                    final String err = e.getMessage();
-                    handler.post(new Runnable() { @Override public void run() { logToTerminal("> ERROR: " + err); submitFlagBtn.setEnabled(true); }});
-                }
+                        });
+                    }
+                });
             }
         }).start();
     }
@@ -703,12 +610,10 @@ public class MainActivity extends AppCompatActivity {
                         honorLayout.setVisibility(View.GONE);
                         honorLayout.setAlpha(1.0f);
 
-                        textQueue.clear();
-                        isTyping = false;
-                        terminalLog.setText("");
+                        terminalLogger.clear();
 
                         mainRootLayout.setVisibility(View.VISIBLE);
-                        logToTerminal(getString(R.string.log_system_rebooted));
+                        terminalLogger.log(getString(R.string.log_system_rebooted));
                     }
                 }).start();
             }
@@ -740,35 +645,5 @@ public class MainActivity extends AppCompatActivity {
             mediaPlayer = null;
         }
         handler.removeCallbacksAndMessages(null);
-    }
-
-    // ==========================================
-    // SECURITY CHECKS
-    // ==========================================
-    private boolean isEmulator() {
-        return (android.os.Build.BRAND.startsWith("generic") && android.os.Build.DEVICE.startsWith("generic"))
-            || android.os.Build.FINGERPRINT.startsWith("generic")
-            || android.os.Build.FINGERPRINT.startsWith("unknown")
-            || android.os.Build.HARDWARE.contains("goldfish")
-            || android.os.Build.HARDWARE.contains("ranchu")
-            || android.os.Build.MODEL.contains("google_sdk")
-            || android.os.Build.MODEL.contains("Emulator")
-            || android.os.Build.MODEL.contains("Android SDK built for x86")
-            || android.os.Build.MANUFACTURER.contains("Genymotion")
-            || android.os.Build.PRODUCT.contains("sdk_google")
-            || android.os.Build.PRODUCT.contains("google_sdk")
-            || android.os.Build.PRODUCT.contains("sdk")
-            || android.os.Build.PRODUCT.contains("sdk_x86")
-            || android.os.Build.PRODUCT.contains("vbox86p")
-            || android.os.Build.PRODUCT.contains("emulator")
-            || android.os.Build.PRODUCT.contains("simulator");
-    }
-
-    private boolean isRooted() {
-        String[] paths = { "/system/app/Superuser.apk", "/sbin/su", "/system/bin/su", "/system/xbin/su", "/data/local/xbin/su", "/data/local/bin/su", "/system/sd/xbin/su", "/system/bin/failsafe/su", "/data/local/su" };
-        for (String path : paths) {
-            if (new java.io.File(path).exists()) return true;
-        }
-        return false;
     }
 }
