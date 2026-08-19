@@ -1,21 +1,21 @@
 # CTF Application
 
-An advanced Android Reverse Engineering and Network Penetration challenge designed to evaluate mobile application security protocols.
+A hands-on Android reverse engineering and network security challenge covering static analysis, dynamic instrumentation, and protocol interception.
 
 ## Project Overview
 
-This CTF is a multi-layered cybersecurity assessment framework testing proficiency in static analysis, dynamic instrumentation, and network protocol interception. Unlike conventional client-side CTFs, this application implements a zero-trust server-side verification architecture.
+This CTF simulates a mobile application security assessment scenario, testing skills in static analysis, dynamic instrumentation, and network protocol interception. The application implements a server-side verification architecture where the flag is only released after a full exploit chain is completed correctly.
 
 ## Architecture
 
-- **Client (Android):** Developed using Java and Native C++ (JNI).
-- **Security Engine:** Features compile-time XOR encryption for sensitive constants and memory obfuscation to deter static string analysis.
+- **Client (Android):** Java with a native C++ (JNI) component.
+- **Security Engine:** Native constants are obfuscated at compile-time to resist casual static string analysis.
 - **Backend (Serverless):** Node.js REST API deployed on the Vercel Edge Network.
-- **Cryptography:** Implements AES-256-GCM End-to-End Encryption (E2EE) for secure payload transmission.
+- **Cryptography:** AES-256-GCM end-to-end encryption for client-server payload transmission.
 
 ## Tools & Prerequisites
 
-To successfully tackle this challenge, players are recommended to prepare the following tools:
+Recommended tools for this challenge:
 
 - **Decompilation & Static Analysis:** JADX, Apktool, or Ghidra.
 - **Dynamic Instrumentation:** Frida or Objection.
@@ -23,30 +23,28 @@ To successfully tackle this challenge, players are recommended to prepare the fo
 
 ## Challenge Specifications
 
-The primary objective is to extract the verified flag string from the remote server. The assessment is divided into three sequential security layers.
+The objective is to extract a valid flag from the remote server. The assessment consists of three sequential stages.
 
-### Phase 1: Cryptographic Extraction (Reverse Engineering)
+### Phase 1: Cryptographic Extraction
 
-The Android client transmits an encrypted payload to the backend server. The objective is to extract the AES-256-GCM Key and the internal authorization token (Backdoor Code) embedded within the application binary.
+The Android client transmits an encrypted payload to the backend. You will need to identify what the client requires to complete this exchange successfully.
 
-*Note: Source code analysis requires investigation of the compiled Native layer (`libnative-crypto.so`). Decoy variables are present.*
+*Note: Investigation of the compiled native layer (`libnative-crypto.so`) is required. Not everything you find there is what it appears to be.*
 
-### Phase 2: Protocol Manipulation (Traffic Interception)
+### Phase 2: Protocol Manipulation
 
-Upon bypassing the first layer, the server initiates a mathematical validation challenge.
-
-*Note: The required multiplier for the calculation is omitted from the JSON response body. Review the HTTP response headers for hidden parameters.*
+Passing Phase 1 unlocks a server-side validation step involving a value you don't yet have.
 
 ### Phase 3: Final Verification
 
-Submit the extracted flag into the Android application interface to validate the completion of the assessment.
+Submit your extracted flag through the Android application to complete the assessment.
 
 ## Getting Started
 
-1. Download the compiled `.apk` file from the repository releases.
-2. Install the application on an Android emulator or a physical test device.
-3. Configure your system proxy and install interceptor certificates (if using Burp Suite/ZAP).
-4. Start analyzing the application.
+1. Download the compiled `.apk` from the repository releases.
+2. Install it on an Android emulator or physical test device.
+3. Set up your proxy and install interceptor certificates if using Burp Suite/ZAP.
+4. Begin your analysis.
 
 ---
 

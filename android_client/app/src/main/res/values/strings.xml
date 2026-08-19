@@ -20,4 +20,8 @@
     <string name="log_system_rebooted">&gt; SYSTEM REBOOTED.\n&gt; WAITING FOR COMMAND...</string>
     <string name="log_booting_ui">Booting Application UI</string>
     <string name="log_verification_failed">&gt; VERIFICATION FAILED: INVALID FLAG.</string>
+
+    <string name="err_no_internet">Tidak dapat terhubung ke internet. Periksa koneksi Anda.</string>
+    <string name="err_timeout">Koneksi ke server timeout. Coba lagi.</string>
+    <string name="err_unexpected">Terjadi kesalahan tidak terduga saat menghubungi server.</string>
 </resources>

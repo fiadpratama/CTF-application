@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/terminal_bg">
+
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/mainScroll"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:padding="18dp"
+            android:paddingTop="30dp">
+
+            <TextView
+                android:id="@+id/mainTitleText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/main_title"
+                android:textColor="@color/terminal_green"
+                android:textSize="32sp"
+                android:fontFamily="monospace"
+                android:textStyle="bold"
+                android:letterSpacing="0.2"
+                android:gravity="center" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/main_subtitle"
+                android:textColor="@color/terminal_green_dim"
+                android:textSize="12sp"
+                android:fontFamily="monospace"
+                android:gravity="center"
+                android:paddingTop="6dp"
+                android:paddingBottom="24dp" />
+
+            <Button
+                android:id="@+id/unlockButton"
+                android:layout_width="match_parent"
+                android:layout_height="45dp"
+                android:layout_marginBottom="24dp"
+                android:text="@string/btn_initiate_decryption"
+                android:textColor="@color/button_text_dark"
+                android:textSize="16sp"
+                android:fontFamily="monospace"
+                android:textStyle="bold"
+                android:background="@drawable/bg_button_primary" />
+
+            <androidx.core.widget.NestedScrollView
+                android:id="@+id/terminalScrollView"
+                android:layout_width="match_parent"
+                android:layout_height="220dp"
+                android:background="@drawable/bg_terminal"
+                android:padding="9dp">
+
+                <TextView
+                    android:id="@+id/terminalLogText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/terminal_green"
+                    android:textSize="12sp"
+                    android:fontFamily="monospace" />
+
+            </androidx.core.widget.NestedScrollView>
+
+            <EditText
+                android:id="@+id/flagInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="6dp"
+                android:hint="@string/flag_input_hint"
+                android:textColor="@color/terminal_green"
+                android:textColorHint="@color/terminal_green_dim"
+                android:textSize="14sp"
+                android:fontFamily="monospace"
+                android:background="@drawable/bg_input_field"
+                android:padding="12dp"
+                android:inputType="text"
+                android:imeOptions="actionDone" />
+
+            <Button
+                android:id="@+id/submitFlagBtn"
+                android:layout_width="match_parent"
+                android:layout_height="45dp"
+                android:text="@string/btn_submit_flag"
+                android:textColor="@color/button_text_dark"
+                android:textSize="16sp"
+                android:fontFamily="monospace"
+                android:textStyle="bold"
+                android:background="@drawable/bg_button_primary" />
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+    <LinearLayout
+        android:id="@+id/honorLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@color/honor_bg"
+        android:padding="12dp"
+        android:paddingTop="24dp"
+        android:visibility="gone">
+
+        <androidx.core.widget.NestedScrollView
+            android:id="@+id/honorScroll"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:paddingTop="240dp"
+                android:paddingBottom="240dp">
+
+                <TextView
+                    android:id="@+id/honorTitleText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/honor_title"
+                    android:textColor="@color/honor_gold"
+                    android:textSize="36sp"
+                    android:fontFamily="serif"
+                    android:textStyle="bold"
+                    android:gravity="center" />
+
+                <TextView
+                    android:id="@+id/honorText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/honor_text"
+                    android:textSize="16sp"
+                    android:fontFamily="serif"
+                    android:gravity="center"
+                    android:paddingTop="18dp"
+                    android:lineSpacingMultiplier="1.5" />
+
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
+    </LinearLayout>
+
+</FrameLayout>
