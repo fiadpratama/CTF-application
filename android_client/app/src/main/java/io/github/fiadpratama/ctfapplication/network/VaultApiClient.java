@@ -5,7 +5,9 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.SocketTimeoutException;
 import java.net.URL;
+import java.net.UnknownHostException;
 
 public class VaultApiClient {
 
@@ -40,10 +42,26 @@ public class VaultApiClient {
             String line;
             while ((line = in.readLine()) != null) response.append(line);
             in.close();
+            conn.disconnect();
 
             callback.onResponse(responseCode, response.toString());
+        } catch (UnknownHostException e) {
+            callback.onError("NO_INTERNET");
+        } catch (SocketTimeoutException e) {
+            callback.onError("TIMEOUT");
         } catch (Exception e) {
-            callback.onError(e.getMessage());
+            callback.onError("UNEXPECTED");
+        }
+    }
+
+    public static String extractDisplayMessage(String rawJsonBody) {
+        try {
+            JSONObject json = new JSONObject(rawJsonBody);
+            if (json.has("message")) return json.getString("message");
+            if (json.has("error")) return json.getString("error");
+            return "UNRECOGNIZED_RESPONSE";
+        } catch (Exception e) {
+            return "PARSE_FAILED";
         }
     }
 }

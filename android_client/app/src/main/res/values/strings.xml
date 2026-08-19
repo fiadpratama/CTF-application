@@ -3,9 +3,9 @@
     <string name="app_name">CTF Application</string>
 
     <string name="main_title">CTF APPLICATION</string>
-    <string name="main_subtitle">SECURE MILITARY-GRADE ENCRYPTION\nPROCEED WITH CAUTION</string>
+    <string name="main_subtitle">CORE INFRASTRUCTURE ASSESSMENT\nPROCEED WITH CAUTION</string>
     <string name="btn_initiate_decryption">INITIATE DECRYPTION</string>
-    <string name="flag_input_hint">ENTER FINAL FLAG HERE...</string>
+    <string name="flag_input_hint">FLAG{...}</string>
     <string name="btn_submit_flag">SUBMIT FLAG</string>
     <string name="honor_title">HALL OF FAME</string>
 
@@ -19,5 +19,9 @@
     <string name="log_system_idle">&gt; SYSTEM IDLE\n&gt; WAITING FOR COMMAND...</string>
     <string name="log_system_rebooted">&gt; SYSTEM REBOOTED.\n&gt; WAITING FOR COMMAND...</string>
     <string name="log_booting_ui">Booting Application UI</string>
-    <string name="log_verification_failed">&gt; VERIFICATION FAILED: INVALID FLAG.</string>
+    <string name="log_verification_failed">&gt; [401] Invalid Flag</string>
+
+    <string name="err_no_internet">&gt; [!] Network connection failed</string>
+    <string name="err_timeout">&gt; [504] Connection timeout</string>
+    <string name="err_unexpected">&gt; [500] Internal server error</string>
 </resources>
