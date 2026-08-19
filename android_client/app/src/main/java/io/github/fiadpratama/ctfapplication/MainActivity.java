@@ -1,14 +1,17 @@
 package io.github.fiadpratama.ctfapplication;
 
 import android.animation.ObjectAnimator;
+import android.content.Context;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.ToneGenerator;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.LinearInterpolator;
+import android.view.inputmethod.InputMethodManager;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.splashscreen.SplashScreen;
 import androidx.core.widget.NestedScrollView;
@@ -64,14 +67,38 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // ==========================================
+    // MANAJEMEN STATE & KEYBOARD
+    // ==========================================
+    private void setButtonsState(boolean isEnabled) {
+        binding.unlockButton.setEnabled(isEnabled);
+        binding.submitFlagBtn.setEnabled(isEnabled);
+    }
+
+    private void hideKeyboard() {
+        View view = this.getCurrentFocus();
+        if (view != null) {
+            InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+            imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+        }
+    }
+
+    // ==========================================
     // UI LISTENERS
     // ==========================================
     private void setupListeners() {
+        binding.honorScroll.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                return true; 
+            }
+        });
+
         binding.unlockButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                hideKeyboard();
                 if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 50);
-                binding.unlockButton.setEnabled(false);
+                setButtonsState(false);
                 terminalLogger.log(getString(R.string.log_initiating_connection));
                 unlockVault();
             }
@@ -80,10 +107,11 @@ public class MainActivity extends AppCompatActivity {
         binding.submitFlagBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                hideKeyboard();
                 if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 50);
                 String flag = binding.flagInput.getText().toString().trim();
                 if (flag.isEmpty()) return;
-                binding.submitFlagBtn.setEnabled(false);
+                setButtonsState(false);
                 terminalLogger.log(getString(R.string.log_verifying_flag));
                 verifyFlag(flag);
             }
@@ -136,7 +164,7 @@ public class MainActivity extends AppCompatActivity {
                                             if (responseCode == 401) {
                                                 if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
                                             }
-                                            binding.unlockButton.setEnabled(true);
+                                            setButtonsState(true);
                                         }
                                     });
                                 }
@@ -152,7 +180,7 @@ public class MainActivity extends AppCompatActivity {
                                         @Override
                                         public void onComplete() {
                                             if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
-                                            binding.unlockButton.setEnabled(true);
+                                            setButtonsState(true);
                                         }
                                     });
                                 }
@@ -167,7 +195,7 @@ public class MainActivity extends AppCompatActivity {
                             terminalLogger.log(getString(R.string.err_unexpected), new TerminalLogger.OnCompleteListener() {
                                 @Override
                                 public void onComplete() {
-                                    binding.unlockButton.setEnabled(true);
+                                    setButtonsState(true);
                                 }
                             });
                         }
@@ -205,7 +233,7 @@ public class MainActivity extends AppCompatActivity {
                                         terminalLogger.log(getString(R.string.err_unexpected), new TerminalLogger.OnCompleteListener() {
                                             @Override
                                             public void onComplete() {
-                                                binding.submitFlagBtn.setEnabled(true);
+                                                setButtonsState(true);
                                             }
                                         });
                                     }
@@ -214,7 +242,7 @@ public class MainActivity extends AppCompatActivity {
                                         @Override
                                         public void onComplete() {
                                             if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
-                                            binding.submitFlagBtn.setEnabled(true);
+                                            setButtonsState(true);
                                         }
                                     });
                                 }
@@ -231,7 +259,7 @@ public class MainActivity extends AppCompatActivity {
                                     @Override
                                     public void onComplete() {
                                         if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
-                                        binding.submitFlagBtn.setEnabled(true);
+                                        setButtonsState(true);
                                     }
                                 });
                             }
@@ -260,7 +288,7 @@ public class MainActivity extends AppCompatActivity {
     // HONOR SCREEN
     // ==========================================
     private void showHonorScreen(String message) {
-        binding.mainScroll.setVisibility(View.GONE);
+        binding.mainLayout.setVisibility(View.GONE);
         binding.honorLayout.setVisibility(View.VISIBLE);
         binding.honorText.setText(message);
 
@@ -313,9 +341,9 @@ public class MainActivity extends AppCompatActivity {
 
                         terminalLogger.clear();
 
-                        binding.mainScroll.setVisibility(View.VISIBLE);
+                        binding.mainLayout.setVisibility(View.VISIBLE);
                         binding.flagInput.setText("");
-                        binding.submitFlagBtn.setEnabled(true);
+                        setButtonsState(true);
                         terminalLogger.log(getString(R.string.log_system_rebooted));
                     }
                 }).start();
