@@ -15,3 +15,5 @@ build/
 local.properties
 app/keystore.jks
 keystore.properties
+app/src/main/cpp/generated-keys.h
+app/src/main/cpp/native-secrets.properties
