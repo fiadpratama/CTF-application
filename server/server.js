@@ -6,7 +6,14 @@ app.use(express.json());
 
 app.set('trust proxy', 1);
 
-const E2EE_KEY = Buffer.from(process.env.E2EE_KEY || "64772649egiasdhjs$i*yes837*dhkja");
+const E2EE_KEY_STRING = process.env.E2EE_KEY;
+const BACKDOOR_CODE = process.env.BACKDOOR_CODE;
+
+if (!E2EE_KEY_STRING || !BACKDOOR_CODE) {
+    throw new Error("Missing required environment variables: E2EE_KEY and/or BACKDOOR_CODE. Server refuses to start without them.");
+}
+
+const E2EE_KEY = Buffer.from(E2EE_KEY_STRING);
 
 const stage1Sessions = new Map();
 
@@ -95,7 +102,7 @@ app.post('/api/vault/stage1', (req, res) => {
         return res.status(401).json({ error: "Decryption failed." });
     }
 
-    if (decryptedData.backdoor_code === "T1R4M1SU_PR0T0C0L_$") {
+    if (decryptedData.backdoor_code === BACKDOOR_CODE) {
         const challengeNum = Math.floor(Math.random() * 10000) + 1000;
 
         const sessionToken = crypto.randomBytes(32).toString('hex');
