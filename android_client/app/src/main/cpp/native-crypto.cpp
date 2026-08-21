@@ -1,6 +1,6 @@
 #include <jni.h>
 #include <string>
-#include "generated_keys.h"
+#include "generated-keys.h"
 
 // ==========================================
 // NATIVE CORE ENGINE (JNI Layer)
