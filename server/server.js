@@ -2,38 +2,30 @@ const express = require('express');
 const crypto = require('crypto');
 const app = express();
 
-app.use(express.json());
-
+app.disable('x-powered-by');
+app.use(express.json({ limit: '10kb' }));
 app.set('trust proxy', 1);
 
 const E2EE_KEY_STRING = process.env.E2EE_KEY;
 const BACKDOOR_CODE = process.env.BACKDOOR_CODE;
+const SECRET_MULTIPLIER = parseInt(process.env.SECRET_MULTIPLIER, 10);
 
-if (!E2EE_KEY_STRING || !BACKDOOR_CODE) {
-    throw new Error("Missing required environment variables: E2EE_KEY and/or BACKDOOR_CODE. Server refuses to start without them.");
+if (!E2EE_KEY_STRING || !BACKDOOR_CODE || !SECRET_MULTIPLIER || isNaN(SECRET_MULTIPLIER)) {
+    throw new Error("[CRITICAL] Missing required environment variables. Server initialization aborted.");
 }
 
 const E2EE_KEY = Buffer.from(E2EE_KEY_STRING);
 
 const stage1Sessions = new Map();
+const solvedFlags = new Map();
+const rateLimit = new Map();
 
 setInterval(() => {
     const now = Date.now();
     for (const [token, data] of stage1Sessions.entries()) {
-        if (now - data.createdAt > 10 * 60 * 1000) {
-            stage1Sessions.delete(token);
-        }
+        if (now - data.createdAt > 10 * 60 * 1000) stage1Sessions.delete(token);
     }
 }, 5 * 60 * 1000);
-
-const solvedFlags = new Map();
-
-function generateSolveFlag() {
-    const raw = crypto.randomBytes(16).toString('hex');
-    const flag = `FLAG{${raw}}`;
-    solvedFlags.set(flag, { createdAt: Date.now(), used: false });
-    return flag;
-}
 
 setInterval(() => {
     const now = Date.now();
@@ -42,34 +34,35 @@ setInterval(() => {
     }
 }, 5 * 60 * 1000);
 
-const rateLimit = new Map();
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, record] of rateLimit.entries()) {
+        if (now - record.start > 60000) rateLimit.delete(ip);
+    }
+}, 60 * 1000);
+
+function generateSolveFlag() {
+    const raw = crypto.randomBytes(16).toString('hex');
+    const flag = `FLAG{${raw}}`;
+    solvedFlags.set(flag, { createdAt: Date.now(), used: false });
+    return flag;
+}
+
 function checkRateLimit(ip) {
     const now = Date.now();
-    const windowMs = 60 * 1000;
-    const maxRequests = 30;
-
     if (!rateLimit.has(ip)) {
         rateLimit.set(ip, { count: 1, start: now });
         return true;
     }
     const record = rateLimit.get(ip);
-    if (now - record.start > windowMs) {
+    if (now - record.start > 60000) {
         rateLimit.set(ip, { count: 1, start: now });
         return true;
     }
-    if (record.count >= maxRequests) return false;
+    if (record.count >= 30) return false;
     record.count++;
     return true;
 }
-
-setInterval(() => {
-    const now = Date.now();
-    for (const [ip, record] of rateLimit.entries()) {
-        if (now - record.start > 60 * 1000) {
-            rateLimit.delete(ip);
-        }
-    }
-}, 60 * 1000);
 
 function decryptPayload(encryptedBase64, ivBase64, authTagBase64) {
     try {
@@ -87,102 +80,100 @@ function decryptPayload(encryptedBase64, ivBase64, authTagBase64) {
 // API ENDPOINT: /api/vault/stage1
 // ==========================================
 app.post('/api/vault/stage1', (req, res) => {
-    const clientIp = req.ip;
-    if (!checkRateLimit(clientIp)) {
-        return res.status(429).json({ error: "Too many requests. Slow down." });
+    if (!checkRateLimit(req.ip)) {
+        return res.status(429).json({ status: 429, error: "Too Many Requests", message: "Rate limit exceeded" });
     }
 
     const { payload, iv, tag } = req.body;
     if (!payload || !iv || !tag) {
-        return res.status(400).json({ error: "E2EE Required" });
+        return res.status(400).json({ status: 400, error: "Bad Request", message: "E2EE payload required" });
     }
 
     const decryptedData = decryptPayload(payload, iv, tag);
     if (!decryptedData) {
-        return res.status(401).json({ error: "Decryption failed." });
+        return res.status(401).json({ status: 401, error: "Unauthorized", message: "Decryption failed" });
     }
 
     if (decryptedData.backdoor_code === BACKDOOR_CODE) {
         const challengeNum = Math.floor(Math.random() * 10000) + 1000;
-
         const sessionToken = crypto.randomBytes(32).toString('hex');
+
         stage1Sessions.set(sessionToken, { challenge: challengeNum, createdAt: Date.now() });
 
-        res.setHeader('X-Secret-Multiplier', Buffer.from('109').toString('base64'));
+        res.setHeader('X-Secret-Multiplier', Buffer.from(String(SECRET_MULTIPLIER)).toString('base64'));
         res.setHeader('X-Session-Token', sessionToken);
 
         return res.status(200).json({
-            message: "Stage 1 Cleared.",
+            status: 200,
+            message: "Stage 1 cleared",
             instruction: "Find the multiplier, multiply it with the challenge number, and send it to /api/vault/stage2 encrypted. Include the X-Session-Token header in your next request.",
             challenge: challengeNum
         });
     }
 
-    return res.status(401).json({ error: "Invalid Backdoor Code" });
+    return res.status(401).json({ status: 401, error: "Unauthorized", message: "Invalid backdoor code" });
 });
 
 // ==========================================
 // API ENDPOINT: /api/vault/stage2
 // ==========================================
 app.post('/api/vault/stage2', (req, res) => {
-    const clientIp = req.ip;
-    if (!checkRateLimit(clientIp)) {
-        return res.status(429).json({ error: "Too many requests. Slow down." });
+    if (!checkRateLimit(req.ip)) {
+        return res.status(429).json({ status: 429, error: "Too Many Requests", message: "Rate limit exceeded" });
     }
 
     const sessionToken = req.headers['x-session-token'];
     if (!sessionToken || !stage1Sessions.has(sessionToken)) {
-        return res.status(403).json({ error: "Stage 1 must be completed first." });
+        return res.status(403).json({ status: 403, error: "Forbidden", message: "Stage 1 not completed" });
     }
 
     const { payload, iv, tag } = req.body;
     if (!payload || !iv || !tag) {
-        return res.status(400).json({ error: "E2EE Required" });
+        return res.status(400).json({ status: 400, error: "Bad Request", message: "E2EE payload required" });
     }
 
     const decryptedData = decryptPayload(payload, iv, tag);
     if (!decryptedData) {
-        return res.status(401).json({ error: "Decryption failed." });
+        return res.status(401).json({ status: 401, error: "Unauthorized", message: "Decryption failed" });
     }
 
     const { answer } = decryptedData;
     if (!answer) {
-        return res.status(400).json({ error: "Invalid payload format." });
+        return res.status(400).json({ status: 400, error: "Bad Request", message: "Missing answer parameter" });
     }
 
     const session = stage1Sessions.get(sessionToken);
-    const expectedAnswer = session.challenge * 109;
+    const expectedAnswer = session.challenge * SECRET_MULTIPLIER;
 
     stage1Sessions.delete(sessionToken);
 
-    if (parseInt(answer) === expectedAnswer) {
-        const flag = generateSolveFlag();
+    if (parseInt(answer, 10) === expectedAnswer) {
         return res.status(200).json({
-            message: "ACCESS GRANTED.",
-            flag
+            status: 200,
+            message: "Access granted",
+            flag: generateSolveFlag()
         });
     }
 
-    return res.status(401).json({ error: "Invalid calculation." });
+    return res.status(401).json({ status: 401, error: "Unauthorized", message: "Invalid calculation" });
 });
 
 // ==========================================
 // API ENDPOINT: /api/vault/verify-flag
 // ==========================================
 app.post('/api/vault/verify-flag', (req, res) => {
-    const clientIp = req.ip;
-    if (!checkRateLimit(clientIp)) {
-        return res.status(429).json({ error: "Too many requests. Slow down." });
+    if (!checkRateLimit(req.ip)) {
+        return res.status(429).json({ status: 429, error: "Too Many Requests", message: "Rate limit exceeded" });
     }
 
     const { flag } = req.body;
     if (!flag || typeof flag !== 'string') {
-        return res.status(400).json({ error: "Flag is required." });
+        return res.status(400).json({ status: 400, error: "Bad Request", message: "Flag parameter required" });
     }
 
     const record = solvedFlags.get(flag);
     if (!record || record.used) {
-        return res.status(401).json({ error: "INVALID FLAG" });
+        return res.status(401).json({ status: 401, error: "Unauthorized", message: "Invalid or already-claimed flag" });
     }
 
     record.used = true;
@@ -203,6 +194,13 @@ app.post('/api/vault/verify-flag', (req, res) => {
             "[+] SESSION TERMINATED.\n\n\n" +
             "FLAG ACQUIRED:\n" + flag
     });
+});
+
+app.use((err, req, res, next) => {
+    if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+        return res.status(400).json({ status: 400, error: "Bad Request", message: "Malformed JSON payload" });
+    }
+    return res.status(500).json({ status: 500, error: "Internal Server Error", message: "Internal system error" });
 });
 
 const PORT = process.env.PORT || 3000;
