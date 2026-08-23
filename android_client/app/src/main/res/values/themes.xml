@@ -2,7 +2,7 @@
 <resources>
     <style name="Theme.CtfApplication.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/terminal_bg</item>
-        <!-- Baris icon dihapus sementara sampai logo PNG 512x512 Anda siap -->
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
         <item name="postSplashScreenTheme">@style/Theme.AppCompat.Light.NoActionBar</item>
     </style>
 </resources>

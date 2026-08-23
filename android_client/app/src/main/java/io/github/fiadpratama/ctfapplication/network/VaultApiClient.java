@@ -9,6 +9,8 @@ import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.net.UnknownHostException;
 
+import io.github.fiadpratama.ctfapplication.BuildConfig;
+
 public class VaultApiClient {
 
     private static final String BASE_URL = "https://server-umber-eta.vercel.app/api/vault";
@@ -28,6 +30,7 @@ public class VaultApiClient {
             conn.setReadTimeout(5000);
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json");
+            conn.setRequestProperty("X-App-Version-Code", String.valueOf(BuildConfig.VERSION_CODE));
             conn.setDoOutput(true);
 
             OutputStream os = conn.getOutputStream();
