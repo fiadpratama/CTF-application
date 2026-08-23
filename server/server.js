@@ -9,6 +9,7 @@ app.set('trust proxy', 1);
 const E2EE_KEY_STRING = process.env.E2EE_KEY;
 const BACKDOOR_CODE = process.env.BACKDOOR_CODE;
 const SECRET_MULTIPLIER = parseInt(process.env.SECRET_MULTIPLIER, 10);
+const MIN_VERSION_CODE = 5;
 
 if (!E2EE_KEY_STRING || !BACKDOOR_CODE || !SECRET_MULTIPLIER || isNaN(SECRET_MULTIPLIER)) {
     throw new Error("[CRITICAL] Missing required environment variables. Server initialization aborted.");
@@ -75,6 +76,18 @@ function decryptPayload(encryptedBase64, ivBase64, authTagBase64) {
         return null;
     }
 }
+
+app.use((req, res, next) => {
+    const clientVersionCode = parseInt(req.headers['x-app-version-code'], 10);
+    if (!clientVersionCode || isNaN(clientVersionCode) || clientVersionCode < MIN_VERSION_CODE) {
+        return res.status(426).json({
+            status: 426,
+            error: "Upgrade Required",
+            message: "Outdated app version, download the latest release"
+        });
+    }
+    next();
+});
 
 // ==========================================
 // API ENDPOINT: /api/vault/stage1
