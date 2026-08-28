@@ -53,7 +53,7 @@ def sanity_check(plaintext: str, encrypted: list):
 
 def main():
     if not os.path.exists(PROPERTIES_FILE):
-        print(f"[ERROR] File tidak ditemukan: {PROPERTIES_FILE}")
+        print(f"[ERROR] Target file not found: {PROPERTIES_FILE}")
         return
 
     secrets = read_secrets(PROPERTIES_FILE)
@@ -71,8 +71,8 @@ def main():
     with open(OUTPUT_FILE, "w") as f:
         f.write(output)
 
-    print(f"[SUCCESS] {os.path.basename(OUTPUT_FILE)} berhasil dibuat di {SCRIPT_DIR}.")
-    print("[SUCCESS] Sanity check lolos — encode/decode simetris terverifikasi.")
+    print(f"[SUCCESS] {os.path.basename(OUTPUT_FILE)} generated successfully in {SCRIPT_DIR}.")
+    print("[SUCCESS] Sanity check passed — symmetric encode/decode verified.")
 
 if __name__ == "__main__":
     main()
