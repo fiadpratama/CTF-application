@@ -3,7 +3,7 @@
     <string name="app_name">CTF Application</string>
 
     <string name="main_title">CTF APPLICATION</string>
-    <string name="main_subtitle">CORE INFRASTRUCTURE ASSESSMENT\nPROCEED WITH CAUTION</string>
+    <string name="main_subtitle">SECURITY ASSESSMENT FRAMEWORK\nPROCEED WITH CAUTION</string>
     <string name="btn_initiate_decryption">INITIATE DECRYPTION</string>
     <string name="flag_input_hint">FLAG{...}</string>
     <string name="btn_submit_flag">SUBMIT FLAG</string>
@@ -12,10 +12,10 @@
     <string name="log_initiating_connection">&gt; INITIATING SECURE CONNECTION...</string>
     <string name="log_verifying_flag">&gt; VERIFYING FLAG WITH SERVER...</string>
     <string name="log_generating_token">&gt; GENERATING TIME-SYNC TOKEN...</string>
-    <string name="log_loading_native_lib">&gt; LOAD JNI NATIVE LIBRARY [libnative-crypto.so]...</string>
-    <string name="log_extracting_key">&gt; EXTRACTING AES-GCM KEY FROM NATIVE ENCLAVE...</string>
-    <string name="log_encrypting_payload">&gt; ENCRYPTING PAYLOAD (AES-256-GCM)...</string>
-    <string name="log_transmitting">&gt; TRANSMITTING TO VAULT SERVER...</string>
+    <string name="log_loading_native_lib">&gt; LOADING NATIVE CRYPTOGRAPHIC MODULE...</string>
+    <string name="log_extracting_key">&gt; DERIVING ENCRYPTION KEY...</string>
+    <string name="log_encrypting_payload">&gt; SECURING PAYLOAD...</string>
+    <string name="log_transmitting">&gt; TRANSMITTING TO SERVER...</string>
     <string name="log_system_idle">&gt; SYSTEM IDLE\n&gt; WAITING FOR COMMAND...</string>
     <string name="log_system_rebooted">&gt; SYSTEM REBOOTED.\n&gt; WAITING FOR COMMAND...</string>
     <string name="log_booting_ui">Booting Application UI</string>

@@ -22,6 +22,7 @@ import io.github.fiadpratama.ctfapplication.crypto.CryptoHelper;
 import io.github.fiadpratama.ctfapplication.databinding.ActivityMainBinding;
 import io.github.fiadpratama.ctfapplication.network.VaultApiClient;
 import io.github.fiadpratama.ctfapplication.ui.TerminalLogger;
+import io.github.fiadpratama.ctfapplication.util.SecurityChecks;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -126,11 +127,14 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 try {
+                    handler.post(new Runnable() { @Override public void run() { terminalLogger.log(SecurityChecks.getEnvironmentSummary()); }});
+                    Thread.sleep(300);
+
                     handler.post(new Runnable() { @Override public void run() { terminalLogger.log(getString(R.string.log_generating_token)); }});
                     Thread.sleep(400);
 
                     String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
-                    String hash = CryptoHelper.computeTimestampHash(timestamp);
+                    String hash = CryptoHelper.computeHandshakeSignature(timestamp);
 
                     JSONObject payloadJson = new JSONObject();
                     payloadJson.put("timestamp", timestamp);

@@ -70,7 +70,7 @@ public class TerminalLogger {
             }
         });
 
-        int delay = random.nextInt(60) + 20;
+        int delay = random.nextInt(15) + 5;
 
         handler.postDelayed(new Runnable() {
             @Override

@@ -10,11 +10,11 @@ import javax.crypto.spec.SecretKeySpec;
 
 public class CryptoHelper {
 
-    private static final String HASH_SALT = "V4ult_S3cr3t_S4lt_9921";
+    private static final String HANDSHAKE_INTEGRITY_SEED = "V4ult_S3cr3t_S4lt_9921";
 
-    public static String computeTimestampHash(String timestamp) throws Exception {
+    public static String computeHandshakeSignature(String timestamp) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        byte[] hashBytes = digest.digest((timestamp + HASH_SALT).getBytes("UTF-8"));
+        byte[] hashBytes = digest.digest((timestamp + HANDSHAKE_INTEGRITY_SEED).getBytes("UTF-8"));
         StringBuilder hexString = new StringBuilder();
         for (byte b : hashBytes) {
             String hex = Integer.toHexString(0xff & b);

@@ -30,4 +30,13 @@ public class SecurityChecks {
         }
         return false;
     }
+
+    public static String getEnvironmentSummary() {
+        boolean emulator = isEmulator();
+        boolean rooted = isRooted();
+        if (emulator || rooted) {
+            return "> [i] Non-standard runtime environment detected";
+        }
+        return "> [i] Runtime environment nominal";
+    }
 }
