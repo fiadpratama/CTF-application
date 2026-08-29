@@ -8,9 +8,9 @@ This CTF simulates a mobile application security assessment scenario, testing sk
 
 ## Architecture
 
-- **Client (Android):** Java with a native C++ (JNI) component.
+- **Client (Android):** Java with a native C++ (JNI) component, hardened with timing obfuscation, secondary key encoding, and passive anti-hooking detection.
 - **Security Engine:** Native constants are obfuscated at compile-time to resist casual static string analysis.
-- **Backend (Serverless):** Node.js REST API deployed on the Vercel Edge Network.
+- **Backend (Serverless):** Node.js REST API deployed on the Vercel Edge Network. Enforces a minimum supported client version and rejects outdated builds.
 - **Cryptography:** AES-256-GCM end-to-end encryption for client-server payload transmission.
 
 ## Tools & Prerequisites
@@ -41,7 +41,7 @@ Submit your extracted flag through the Android application to complete the asses
 
 ## Getting Started
 
-1. Download the compiled `.apk` from the repository releases.
+1. Download the compiled `.apk` from the repository releases. Make sure you have the latest release — older builds are rejected by the server.
 2. Install it on an Android emulator or physical test device.
 3. Set up your proxy and install interceptor certificates if using Burp Suite/ZAP.
 4. Begin your analysis.
