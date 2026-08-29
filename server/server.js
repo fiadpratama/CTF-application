@@ -78,6 +78,13 @@ function decryptPayload(encryptedBase64, ivBase64, authTagBase64) {
 }
 
 app.use((req, res, next) => {
+    if (!checkRateLimit(req.ip)) {
+        return res.status(429).json({ status: 429, error: "Too Many Requests", message: "Rate limit exceeded" });
+    }
+    next();
+});
+
+app.use((req, res, next) => {
     const clientVersionCode = parseInt(req.headers['x-app-version-code'], 10);
     if (!clientVersionCode || isNaN(clientVersionCode) || clientVersionCode < MIN_VERSION_CODE) {
         return res.status(426).json({
@@ -93,10 +100,6 @@ app.use((req, res, next) => {
 // API ENDPOINT: /api/vault/stage1
 // ==========================================
 app.post('/api/vault/stage1', (req, res) => {
-    if (!checkRateLimit(req.ip)) {
-        return res.status(429).json({ status: 429, error: "Too Many Requests", message: "Rate limit exceeded" });
-    }
-
     const { payload, iv, tag } = req.body;
     if (!payload || !iv || !tag) {
         return res.status(400).json({ status: 400, error: "Bad Request", message: "E2EE payload required" });
@@ -131,10 +134,6 @@ app.post('/api/vault/stage1', (req, res) => {
 // API ENDPOINT: /api/vault/stage2
 // ==========================================
 app.post('/api/vault/stage2', (req, res) => {
-    if (!checkRateLimit(req.ip)) {
-        return res.status(429).json({ status: 429, error: "Too Many Requests", message: "Rate limit exceeded" });
-    }
-
     const sessionToken = req.headers['x-session-token'];
     if (!sessionToken || !stage1Sessions.has(sessionToken)) {
         return res.status(403).json({ status: 403, error: "Forbidden", message: "Stage 1 not completed" });
@@ -175,10 +174,6 @@ app.post('/api/vault/stage2', (req, res) => {
 // API ENDPOINT: /api/vault/verify-flag
 // ==========================================
 app.post('/api/vault/verify-flag', (req, res) => {
-    if (!checkRateLimit(req.ip)) {
-        return res.status(429).json({ status: 429, error: "Too Many Requests", message: "Rate limit exceeded" });
-    }
-
     const { flag } = req.body;
     if (!flag || typeof flag !== 'string') {
         return res.status(400).json({ status: 400, error: "Bad Request", message: "Flag parameter required" });
