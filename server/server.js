@@ -1,5 +1,6 @@
 const express = require('express');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const app = express();
 
 app.disable('x-powered-by');
@@ -9,24 +10,17 @@ app.set('trust proxy', 1);
 const E2EE_KEY_STRING = process.env.E2EE_KEY;
 const BACKDOOR_CODE = process.env.BACKDOOR_CODE;
 const SECRET_MULTIPLIER = parseInt(process.env.SECRET_MULTIPLIER, 10);
+const JWT_SECRET = process.env.JWT_SECRET;
 const MIN_VERSION_CODE = 5;
 
-if (!E2EE_KEY_STRING || !BACKDOOR_CODE || !SECRET_MULTIPLIER || isNaN(SECRET_MULTIPLIER)) {
+if (!E2EE_KEY_STRING || !BACKDOOR_CODE || !SECRET_MULTIPLIER || isNaN(SECRET_MULTIPLIER) || !JWT_SECRET) {
     throw new Error("[CRITICAL] Missing required environment variables. Server initialization aborted.");
 }
 
 const E2EE_KEY = Buffer.from(E2EE_KEY_STRING);
 
-const stage1Sessions = new Map();
 const solvedFlags = new Map();
 const rateLimit = new Map();
-
-setInterval(() => {
-    const now = Date.now();
-    for (const [token, data] of stage1Sessions.entries()) {
-        if (now - data.createdAt > 10 * 60 * 1000) stage1Sessions.delete(token);
-    }
-}, 5 * 60 * 1000);
 
 setInterval(() => {
     const now = Date.now();
@@ -112,9 +106,12 @@ app.post('/api/vault/stage1', (req, res) => {
 
     if (decryptedData.backdoor_code === BACKDOOR_CODE) {
         const challengeNum = Math.floor(Math.random() * 10000) + 1000;
-        const sessionToken = crypto.randomBytes(32).toString('hex');
 
-        stage1Sessions.set(sessionToken, { challenge: challengeNum, createdAt: Date.now() });
+        const sessionToken = jwt.sign(
+            { challenge: challengeNum },
+            JWT_SECRET,
+            { expiresIn: '10m' }
+        );
 
         res.setHeader('X-Secret-Multiplier', Buffer.from(String(SECRET_MULTIPLIER)).toString('base64'));
         res.setHeader('X-Session-Token', sessionToken);
@@ -135,8 +132,15 @@ app.post('/api/vault/stage1', (req, res) => {
 // ==========================================
 app.post('/api/vault/stage2', (req, res) => {
     const sessionToken = req.headers['x-session-token'];
-    if (!sessionToken || !stage1Sessions.has(sessionToken)) {
+    if (!sessionToken) {
         return res.status(403).json({ status: 403, error: "Forbidden", message: "Stage 1 not completed" });
+    }
+
+    let decodedSession;
+    try {
+        decodedSession = jwt.verify(sessionToken, JWT_SECRET);
+    } catch (e) {
+        return res.status(403).json({ status: 403, error: "Forbidden", message: "Invalid or expired session token" });
     }
 
     const { payload, iv, tag } = req.body;
@@ -154,10 +158,7 @@ app.post('/api/vault/stage2', (req, res) => {
         return res.status(400).json({ status: 400, error: "Bad Request", message: "Missing answer parameter" });
     }
 
-    const session = stage1Sessions.get(sessionToken);
-    const expectedAnswer = session.challenge * SECRET_MULTIPLIER;
-
-    stage1Sessions.delete(sessionToken);
+    const expectedAnswer = decodedSession.challenge * SECRET_MULTIPLIER;
 
     if (parseInt(answer, 10) === expectedAnswer) {
         return res.status(200).json({
@@ -190,8 +191,8 @@ app.post('/api/vault/verify-flag', (req, res) => {
         success: true,
         title: "HALL OF FAME",
         message: "SECURITY ASSESSMENT COMPLETE\n\n" +
-            "[+] STATUS: VULNERABILITY EXPLOITED\n" +
-            "[+] TARGET: CTF APPLICATION CORE INFRASTRUCTURE\n\n" +
+            "STATUS\nVULNERABILITY EXPLOITED\n\n" +
+            "TARGET\nCTF APPLICATION CORE INFRASTRUCTURE\n\n" +
             "Congratulations on successfully completing this security assessment.\n\n" +
             "This challenge was designed to evaluate advanced reverse engineering, dynamic instrumentation, and cryptographic analysis skills.\n\n" +
             "By extracting the backdoor code from the native C++ layer (JNI) and intercepting the encrypted AES-256-GCM network payloads, you have demonstrated exceptional proficiency in mobile application security and protocol manipulation.\n\n" +
@@ -199,8 +200,8 @@ app.post('/api/vault/verify-flag', (req, res) => {
             "DEVELOPER & ARCHITECT\nFiad Pratama\n\n\n" +
             "TECHNOLOGY STACK\nAndroid (Java/C++) & Node.js (Vercel Edge)\n\n\n" +
             "BACKGROUND SCORE\nW.A. Mozart - Dies Irae (Requiem in D minor)\n\n\n\n\n\n\n\n" +
-            "[+] SESSION TERMINATED.\n\n\n" +
-            "FLAG ACQUIRED:\n" + flag
+            "SESSION TERMINATED.\n\n\n" +
+            "FLAG ACQUIRED\n" + flag
     });
 });
 
