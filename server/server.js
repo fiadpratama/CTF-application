@@ -29,14 +29,23 @@ function generateSolveFlag() {
 
 async function checkRateLimit(ip) {
     try {
+        const banKey = `banned:${ip}`;
+        const isBanned = await redis.get(banKey);
+        if (isBanned) return false;
+
         const key = `ratelimit:${ip}`;
         const count = await redis.incr(key);
         if (count === 1) {
             await redis.expire(key, 60);
         }
-        return count <= 30;
-    } catch (e) {
-        console.error("[RATE_LIMIT_ERROR]", e.message);
+
+        if (count > 30) {
+            await redis.set(banKey, "1", { ex: 1800 });
+            return false;
+        }
+        return true;
+    } catch (redisError) {
+        console.error("[RATE_LIMIT_ERROR]", redisError.message);
         return true;
     }
 }
@@ -48,7 +57,7 @@ function decryptPayload(encryptedBase64, ivBase64, authTagBase64) {
         let decrypted = decipher.update(encryptedBase64, 'base64', 'utf8');
         decrypted += decipher.final('utf8');
         return JSON.parse(decrypted);
-    } catch (e) {
+    } catch (decryptError) {
         return null;
     }
 }
@@ -122,7 +131,7 @@ app.post('/api/vault/stage2', async (req, res) => {
     let decodedSession;
     try {
         decodedSession = jwt.verify(sessionToken, JWT_SECRET);
-    } catch (e) {
+    } catch (jwtError) {
         return res.status(403).json({ status: 403, error: "Forbidden", message: "Invalid or expired session token" });
     }
 
@@ -188,7 +197,7 @@ app.post('/api/vault/verify-flag', async (req, res) => {
     });
 });
 
-app.use((err, req, res, next) => {
+app.use((err, req, res, unusedNext) => {
     if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
         return res.status(400).json({ status: 400, error: "Bad Request", message: "Malformed JSON payload" });
     }
