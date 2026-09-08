@@ -6,12 +6,16 @@ CTF Application is an educational mobile security challenge. It is designed to b
 
 ## Secret Management
 
-This repository is fully open source, including the native C++ layer and backend server code. Cryptographic secrets (the E2EE key, backdoor authorization token, and stage-2 multiplier) are never committed to version control. They are:
+This repository is fully open source, including the native C++ layer and backend server code. Cryptographic secrets (the E2EE key, backdoor authorization token, session signing key, and stage-2 multiplier) are never committed to version control. They are:
 
 - Generated locally from a git-ignored configuration file (`native-secrets.properties`) for the Android client, via `generate_keys.py`.
-- Injected via environment variables for the backend server (`E2EE_KEY`, `BACKDOOR_CODE`, `SECRET_MULTIPLIER`).
+- Injected via environment variables for the backend server (`E2EE_KEY`, `BACKDOOR_CODE`, `SECRET_MULTIPLIER`, `JWT_SECRET`).
 
 Reading the full source is encouraged and will not spoil the challenge — only the runtime secret values are protected.
+
+## Architecture Notes
+
+Session state (Stage 1 challenges) is handled via signed, stateless JWTs rather than server-side session storage. Persistent state that must survive across serverless function instances — single-use flags and rate limiting — is backed by Upstash Redis (Vercel KV).
 
 ## Incident History
 
