@@ -98,9 +98,10 @@ app.post('/api/vault/stage1', (req, res) => {
 
     if (decryptedData.backdoor_code === BACKDOOR_CODE) {
         const challengeNum = Math.floor(Math.random() * 10000) + 1000;
+        const jti = crypto.randomBytes(16).toString('hex');
 
         const sessionToken = jwt.sign(
-            { challenge: challengeNum },
+            { challenge: challengeNum, jti },
             JWT_SECRET,
             { expiresIn: '10m' }
         );
@@ -153,6 +154,16 @@ app.post('/api/vault/stage2', async (req, res) => {
     const expectedAnswer = decodedSession.challenge * SECRET_MULTIPLIER;
 
     if (parseInt(answer, 10) === expectedAnswer) {
+        if (!decodedSession.jti) {
+            return res.status(403).json({ status: 403, error: "Forbidden", message: "Invalid session token format" });
+        }
+
+        const usedKey = `jti:${decodedSession.jti}`;
+        const isAcquired = await redis.set(usedKey, "1", { nx: true, ex: 600 });
+        if (!isAcquired) {
+            return res.status(403).json({ status: 403, error: "Forbidden", message: "Session token already used" });
+        }
+
         const flag = await generateSolveFlag();
         return res.status(200).json({
             status: 200,
@@ -173,10 +184,14 @@ app.post('/api/vault/verify-flag', async (req, res) => {
         return res.status(400).json({ status: 400, error: "Bad Request", message: "Flag parameter required" });
     }
 
-    const record = await redis.getdel(`flag:${flag}`);
+    const status = await redis.get(`flag:${flag}`);
 
-    if (record !== "unused") {
-        return res.status(401).json({ status: 401, error: "Unauthorized", message: "Invalid or already-claimed flag" });
+    if (!status) {
+        return res.status(401).json({ status: 401, error: "Unauthorized", message: "Invalid or expired flag" });
+    }
+
+    if (status === "unused") {
+        await redis.set(`flag:${flag}`, "claimed", { ex: 300 });
     }
 
     return res.status(200).json({
