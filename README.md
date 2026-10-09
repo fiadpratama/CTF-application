@@ -19,7 +19,7 @@ Recommended tools for this challenge:
 
 - **Decompilation & Static Analysis:** JADX, Apktool, or Ghidra.
 - **Dynamic Instrumentation:** Frida or Objection.
-- **Traffic Interception & Proxying:** Burp Suite or OWASP ZAP (requires Frida SSL unpinning scripts or system-level CA installation on modern Android).
+- **Traffic Interception & Proxying:** Burp Suite or OWASP ZAP. Note that modern Android does not trust user-installed CA certificates by default, so HTTPS interception requires additional setup.
 
 ## Challenge Specifications
 
@@ -41,9 +41,9 @@ Submit your extracted flag through the Android application to complete the asses
 
 ## Getting Started
 
-1. Download the compiled `.apk` from the repository releases. Make sure you have the latest release — older builds are rejected by the server.
+1. Download the latest `.apk` from the repository releases. Outdated builds may be rejected by the server.
 2. Install it on an Android emulator or physical test device.
-3. Configure your proxy environment. Due to default Android platform trust configurations, intercepting HTTPS traffic requires dynamic instrumentation (e.g., Frida scripts) or installing interceptor CA certificates into the system trust store.
+3. Configure your proxy environment if using Burp Suite/ZAP (see the note above on HTTPS interception).
 4. Begin your analysis.
 
 ---
