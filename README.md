@@ -46,6 +46,18 @@ Submit your extracted flag through the Android application to complete the asses
 3. Configure your proxy environment if using Burp Suite/ZAP (see the note above on HTTPS interception).
 4. Begin your analysis.
 
+## Privacy
+
+The backend uses client IP addresses solely for rate limiting. They are held in a short-lived datastore (up to 30 minutes if a client is temporarily blocked). The hosting provider may keep its own request logs under its own policy. Do not enter personal information into the app.
+
+## Verifying the APK
+
+Releases are signed with a single signing key. The SHA-256 fingerprint of its certificate is:
+
+`11919c358daf9c9f56da77617284fb99cc402fc789242fe8c75c674a3c551a62`
+
+Compare it with the output of `apksigner verify --print-certs app-release.apk`. GitHub also shows a SHA-256 digest for each release asset.
+
 ---
 
 *Disclaimer: This repository is intended strictly for educational purposes, security research, and ethical hacking practice. Unauthorized automated attacks, including Denial of Service (DoS) or brute-forcing against the deployed backend infrastructure, are strictly prohibited.*
