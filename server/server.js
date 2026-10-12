@@ -86,7 +86,7 @@ app.use((req, res, next) => {
 // API ENDPOINT: /api/vault/stage1
 // ==========================================
 app.post('/api/vault/stage1', (req, res) => {
-    const { payload, iv, tag } = req.body;
+    const { payload, iv, tag } = req.body || {};
     if (!payload || !iv || !tag) {
         return res.status(400).json({ status: 400, error: "Bad Request", message: "E2EE payload required" });
     }
@@ -103,7 +103,7 @@ app.post('/api/vault/stage1', (req, res) => {
         const sessionToken = jwt.sign(
             { challenge: challengeNum, jti },
             JWT_SECRET,
-            { expiresIn: '10m' }
+            { expiresIn: '10m', algorithm: 'HS256' }
         );
 
         res.setHeader('X-Secret-Multiplier', Buffer.from(String(SECRET_MULTIPLIER)).toString('base64'));
@@ -131,12 +131,12 @@ app.post('/api/vault/stage2', async (req, res) => {
 
     let decodedSession;
     try {
-        decodedSession = jwt.verify(sessionToken, JWT_SECRET);
+        decodedSession = jwt.verify(sessionToken, JWT_SECRET, { algorithms: ['HS256'] });
     } catch (jwtError) {
         return res.status(403).json({ status: 403, error: "Forbidden", message: "Invalid or expired session token" });
     }
 
-    const { payload, iv, tag } = req.body;
+    const { payload, iv, tag } = req.body || {};
     if (!payload || !iv || !tag) {
         return res.status(400).json({ status: 400, error: "Bad Request", message: "E2EE payload required" });
     }
@@ -152,8 +152,9 @@ app.post('/api/vault/stage2', async (req, res) => {
     }
 
     const expectedAnswer = decodedSession.challenge * SECRET_MULTIPLIER;
+    const answerText = String(answer);
 
-    if (parseInt(answer, 10) === expectedAnswer) {
+    if (/^\d+$/.test(answerText) && Number(answerText) === expectedAnswer) {
         if (!decodedSession.jti) {
             return res.status(403).json({ status: 403, error: "Forbidden", message: "Invalid session token format" });
         }
@@ -179,7 +180,7 @@ app.post('/api/vault/stage2', async (req, res) => {
 // API ENDPOINT: /api/vault/verify-flag
 // ==========================================
 app.post('/api/vault/verify-flag', async (req, res) => {
-    const { flag } = req.body;
+    const { flag } = req.body || {};
     if (!flag || typeof flag !== 'string') {
         return res.status(400).json({ status: 400, error: "Bad Request", message: "Flag parameter required" });
     }
