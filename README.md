@@ -1,5 +1,9 @@
 # CTF Application
 
+English | [Bahasa Indonesia](README.id.md)
+
+---
+
 A hands-on Android reverse engineering and network security challenge covering static analysis, dynamic instrumentation, and protocol interception.
 
 ## Project Overview
@@ -46,17 +50,30 @@ Submit your extracted flag through the Android application to complete the asses
 3. Configure your proxy environment if using Burp Suite/ZAP (see the note above on HTTPS interception).
 4. Begin your analysis.
 
-## Privacy
+## Privacy & Data Handling
 
-The backend uses client IP addresses solely for rate limiting. They are held in a short-lived datastore (up to 30 minutes if a client is temporarily blocked). The hosting provider may keep its own request logs under its own policy. Do not enter personal information into the app.
+This project is a self-contained security challenge and does not collect or track Personally Identifiable Information (PII).
 
-## Verifying the APK
+- **IP Addresses:** The backend temporarily processes client IP addresses exclusively for rate limiting and abuse prevention. Records are stored in an ephemeral Redis cache and expire automatically (up to 30 minutes for rate-limited clients).
+- **Network Traffic:** All communication is transmitted over HTTPS. Only challenge tokens and flags are evaluated; participants should never submit sensitive personal credentials.
+- **Infrastructure Logs:** The API is hosted on the Vercel Edge Network, which may retain standard HTTP transit logs per Vercel's standard infrastructure policies.
 
-Releases are signed with a single signing key. The SHA-256 fingerprint of its certificate is:
+## Verifying Release Authenticity
 
-`11919c358daf9c9f56da77617284fb99cc402fc789242fe8c75c674a3c551a62`
+Official release APKs are signed with a dedicated developer signing key. You can independently verify the authenticity and integrity of the binary before installation:
 
-Compare it with the output of `apksigner verify --print-certs app-release.apk`. GitHub also shows a SHA-256 digest for each release asset.
+### 1. Signing Certificate Fingerprint (Authenticity)
+Verify that the APK was built and signed by the repository author:
+```
+SHA-256: 11919c358daf9c9f56da77617284fb99cc402fc789242fe8c75c674a3c551a62
+```
+To verify using Android SDK build-tools:
+```bash
+apksigner verify --print-certs app-release.apk
+```
+
+### 2. File Checksum (Integrity)
+To ensure the downloaded APK was not corrupted in transit, match its SHA-256 hash against the asset digest published on the [GitHub Releases](../../releases) page.
 
 ---
 
