@@ -52,7 +52,7 @@ Kirimkan flag yang berhasil diekstrak melalui aplikasi Android untuk menyelesaik
 
 ## Privasi & Pengelolaan Data
 
-Proyek ini adalah tantangan keamanan mandiri dan tidak mengumpulkan atau melacak Informasi Identifikasi Pribadi (*Personally Identifiable Information* / PII).
+Proyek ini adalah tantangan keamanan mandiri dan tidak mengumpulkan informasi pribadi selain penanganan alamat IP yang dijelaskan di bawah.
 
 - **Alamat IP:** Backend memproses alamat IP klien sementara secara eksklusif untuk *rate limiting* dan pencegahan penyalahgunaan. Data disimpan dalam cache Redis sementara dan kedaluwarsa secara otomatis (maksimal 30 menit bagi klien yang terkena pembatasan).
 - **Trafik Jaringan:** Seluruh komunikasi ditransmisikan melalui HTTPS. Hanya token tantangan dan flag yang dievaluasi; peserta tidak boleh memasukkan kredensial pribadi yang sensitif.
@@ -60,7 +60,7 @@ Proyek ini adalah tantangan keamanan mandiri dan tidak mengumpulkan atau melacak
 
 ## Verifikasi Keaslian Rilis
 
-APK rilis resmi ditandatangani menggunakan kunci penandatanganan pengembang khusus. Anda dapat memverifikasi keaslian dan integritas berkas secara independen sebelum memasangnya:
+APK rilis resmi (v1.4.0 dan seterusnya) ditandatangani menggunakan kunci penandatanganan pengembang khusus. Anda dapat memverifikasi keaslian dan integritas berkas secara independen sebelum memasangnya:
 
 ### 1. Sidik Jari Sertifikat Penandatangan (Keaslian / Authenticity)
 Pastikan bahwa APK benar-benar dibuat dan ditandatangani oleh pembuat repositori:

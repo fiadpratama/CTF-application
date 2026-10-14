@@ -52,7 +52,7 @@ Submit your extracted flag through the Android application to complete the asses
 
 ## Privacy & Data Handling
 
-This project is a self-contained security challenge and does not collect or track Personally Identifiable Information (PII).
+This project is a self-contained security challenge and does not collect personal information beyond the IP address handling described below.
 
 - **IP Addresses:** The backend temporarily processes client IP addresses exclusively for rate limiting and abuse prevention. Records are stored in an ephemeral Redis cache and expire automatically (up to 30 minutes for rate-limited clients).
 - **Network Traffic:** All communication is transmitted over HTTPS. Only challenge tokens and flags are evaluated; participants should never submit sensitive personal credentials.
@@ -60,7 +60,7 @@ This project is a self-contained security challenge and does not collect or trac
 
 ## Verifying Release Authenticity
 
-Official release APKs are signed with a dedicated developer signing key. You can independently verify the authenticity and integrity of the binary before installation:
+Official release APKs (v1.4.0 and later) are signed with a dedicated developer signing key. You can independently verify the authenticity and integrity of the binary before installation:
 
 ### 1. Signing Certificate Fingerprint (Authenticity)
 Verify that the APK was built and signed by the repository author:
