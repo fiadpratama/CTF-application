@@ -11,17 +11,33 @@ import java.net.UnknownHostException;
 
 import io.github.fiadpratama.ctfapplication.BuildConfig;
 
+/**
+ * Vault REST API Client
+ *
+ * Handles HTTPS transport, request timeout management, and client version attribution
+ * when communicating with the remote Vault serverless backend.
+ */
 public class VaultApiClient {
 
     private static final String BASE_URL = "https://server-umber-eta.vercel.app/api/vault";
     public static final String STAGE1_URL = BASE_URL + "/stage1";
     public static final String VERIFY_FLAG_URL = BASE_URL + "/verify-flag";
 
+    /**
+     * Asynchronous callback interface for HTTP responses.
+     */
     public interface ApiCallback {
         void onResponse(int responseCode, String body);
         void onError(String message);
     }
 
+    /**
+     * Dispatches an asynchronous HTTP POST request with JSON payload.
+     *
+     * @param urlStr Target endpoint URL
+     * @param body JSON body to transmit
+     * @param callback Result callback handler
+     */
     public static void postJson(String urlStr, JSONObject body, ApiCallback callback) {
         try {
             URL url = new URL(urlStr);
@@ -57,6 +73,12 @@ public class VaultApiClient {
         }
     }
 
+    /**
+     * Extracts human-readable display messages from server JSON responses.
+     *
+     * @param rawJsonBody Raw HTTP response body
+     * @return Extracted message string or fallback identifier
+     */
     public static String extractDisplayMessage(String rawJsonBody) {
         try {
             JSONObject json = new JSONObject(rawJsonBody);

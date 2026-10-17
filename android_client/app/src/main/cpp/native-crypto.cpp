@@ -4,21 +4,32 @@
 #include <fstream>
 #include "generated-keys.h"
 
-// ==========================================
-// NATIVE CORE ENGINE (JNI Layer)
-// ==========================================
+/**
+ * Native Cryptographic & Anti-Analysis Engine (JNI Layer)
+ *
+ * Implements compile-time obfuscated credential recovery, bitwise deobfuscation,
+ * dynamic timing perturbation, and passive TracerPid anti-debugging detection.
+ */
 
+// Decoy constants intended to mislead casual static string analysis
 const char* DECOY_KEY      = "AES_KEY_IS_SUPER_SECRET_99182";
 const char* DECOY_BACKDOOR = "ADMIN_OVERRIDE_12345";
 
+// XOR rotation mask configuration
 const unsigned char XOR_KEY[] = { 0x5A, 0x3C, 0x91, 0xE7 };
 const size_t XOR_KEY_LEN = sizeof(XOR_KEY);
 
+/**
+ * Performs an 8-bit circular right shift.
+ */
 static unsigned char rotate_right(unsigned char val, int shift) {
     shift = shift % 8;
     return (val >> shift) | (val << (8 - shift));
 }
 
+/**
+ * Deobfuscates encrypted byte sequences using inverse bit rotation, XOR masking, and index biasing.
+ */
 static std::string decrypt(const unsigned char* encrypted, size_t length) {
     std::string result(length, '\0');
     for (size_t i = 0; i < length; i++) {
@@ -29,6 +40,9 @@ static std::string decrypt(const unsigned char* encrypted, size_t length) {
     return result;
 }
 
+/**
+ * Introduces non-deterministic timing noise to complicate execution flow profiling.
+ */
 static void timing_noise() {
     volatile long dummy = 0;
     long seed = std::chrono::system_clock::now().time_since_epoch().count();
@@ -38,6 +52,9 @@ static void timing_noise() {
     }
 }
 
+/**
+ * Passively evaluates /proc/self/status for non-zero TracerPid to detect active debuggers.
+ */
 static bool detect_hooking() {
     std::ifstream status_file("/proc/self/status");
     if (!status_file.is_open()) {
@@ -58,6 +75,9 @@ static bool detect_hooking() {
     return false;
 }
 
+/**
+ * Native Export: Recovers the symmetric end-to-end encryption key.
+ */
 extern "C" JNIEXPORT jstring JNICALL
 Java_io_github_fiadpratama_ctfapplication_MainActivity_getE2EKey(JNIEnv* env, jobject /* this */) {
     timing_noise();
@@ -68,6 +88,9 @@ Java_io_github_fiadpratama_ctfapplication_MainActivity_getE2EKey(JNIEnv* env, jo
     return env->NewStringUTF(key.c_str());
 }
 
+/**
+ * Native Export: Recovers the authorized handshake payload secret.
+ */
 extern "C" JNIEXPORT jstring JNICALL
 Java_io_github_fiadpratama_ctfapplication_MainActivity_getBackdoor(JNIEnv* env, jobject /* this */) {
     timing_noise();

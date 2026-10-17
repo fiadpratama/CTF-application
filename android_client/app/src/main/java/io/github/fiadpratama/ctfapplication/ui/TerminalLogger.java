@@ -8,8 +8,17 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Random;
 
+/**
+ * Terminal UI Emulator
+ *
+ * Implements typewriter-style character output and automatic downward scrolling
+ * to simulate a retro security assessment terminal console.
+ */
 public class TerminalLogger {
 
+    /**
+     * Callback invoked once a queued text output animation finishes.
+     */
     public interface OnCompleteListener {
         void onComplete();
     }
@@ -28,10 +37,21 @@ public class TerminalLogger {
         this.handler = handler;
     }
 
+    /**
+     * Queues a message to be rendered character-by-character on the terminal.
+     *
+     * @param message Text to display
+     */
     public void log(String message) {
         log(message, null);
     }
 
+    /**
+     * Queues a message with a completion callback triggered when typing finishes.
+     *
+     * @param message Text to display
+     * @param onComplete Optional callback invoked after all characters are typed
+     */
     public void log(String message, OnCompleteListener onComplete) {
         String fullMessage = message + "\n";
         for (char c : fullMessage.toCharArray()) {
@@ -43,12 +63,18 @@ public class TerminalLogger {
         }
     }
 
+    /**
+     * Clears terminal text and cancels ongoing typing animations.
+     */
     public void clear() {
         textQueue.clear();
         isTyping = false;
         terminalLog.setText("");
     }
 
+    /**
+     * Sequentially pops and appends characters to the TextView with randomized latency.
+     */
     private void typeNextCharacter() {
         if (textQueue.isEmpty()) {
             isTyping = false;

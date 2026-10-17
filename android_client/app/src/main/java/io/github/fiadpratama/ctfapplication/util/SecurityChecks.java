@@ -2,8 +2,19 @@ package io.github.fiadpratama.ctfapplication.util;
 
 import java.io.File;
 
+/**
+ * Runtime Environment Integrity Checks
+ *
+ * Detects common sandbox, emulator, and root indicators to inform
+ * client telemetry and terminal status outputs.
+ */
 public class SecurityChecks {
 
+    /**
+     * Inspects build properties and hardware signatures for Android emulator artifacts.
+     *
+     * @return true if emulator characteristics are detected
+     */
     public static boolean isEmulator() {
         return (android.os.Build.BRAND.startsWith("generic") && android.os.Build.DEVICE.startsWith("generic"))
             || android.os.Build.FINGERPRINT.startsWith("generic")
@@ -23,6 +34,11 @@ public class SecurityChecks {
             || android.os.Build.PRODUCT.contains("simulator");
     }
 
+    /**
+     * Checks for known su binary paths to evaluate device root status.
+     *
+     * @return true if su binary exists in standard filesystem paths
+     */
     public static boolean isRooted() {
         String[] paths = { "/system/app/Superuser.apk", "/sbin/su", "/system/bin/su", "/system/xbin/su", "/data/local/xbin/su", "/data/local/bin/su", "/system/sd/xbin/su", "/system/bin/failsafe/su", "/data/local/su" };
         for (String path : paths) {
@@ -31,6 +47,11 @@ public class SecurityChecks {
         return false;
     }
 
+    /**
+     * Returns a summarized log string of the current environment state.
+     *
+     * @return Formatted status log for the terminal
+     */
     public static String getEnvironmentSummary() {
         boolean emulator = isEmulator();
         boolean rooted = isRooted();

@@ -8,10 +8,23 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
+/**
+ * Cryptographic Utility Service
+ *
+ * Provides symmetric encryption (AES-256-GCM) and cryptographic hashing
+ * for secure client-server communication and payload integrity verification.
+ */
 public class CryptoHelper {
 
     private static final String HANDSHAKE_INTEGRITY_SEED = "V4ult_S3cr3t_S4lt_9921";
 
+    /**
+     * Computes a SHA-256 integrity signature for the initial handshake timestamp.
+     *
+     * @param timestamp Client timestamp string
+     * @return Hex-encoded SHA-256 digest
+     * @throws Exception if hashing algorithm or encoding fails
+     */
     public static String computeHandshakeSignature(String timestamp) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         byte[] hashBytes = digest.digest((timestamp + HANDSHAKE_INTEGRITY_SEED).getBytes("UTF-8"));
@@ -24,6 +37,14 @@ public class CryptoHelper {
         return hexString.toString();
     }
 
+    /**
+     * Encrypts a JSON payload using AES-256-GCM with a randomized 12-byte IV.
+     *
+     * @param plainPayload Raw JSON payload to encrypt
+     * @param keyBytes 256-bit (32-byte) symmetric encryption key
+     * @return Encrypted JSON containing Base64-encoded payload, iv, and authentication tag
+     * @throws Exception if encryption fails
+     */
     public static JSONObject encryptPayload(JSONObject plainPayload, byte[] keyBytes) throws Exception {
         byte[] iv = new byte[12];
         new SecureRandom().nextBytes(iv);
