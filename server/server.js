@@ -39,11 +39,20 @@ function generateSolveFlag() {
     return redis.set(`flag:${flag}`, "unused", { ex: 900 }).then(() => flag);
 }
 
+const BAN_SECONDS = 1800;
+
+function formatRetry(seconds) {
+    return seconds >= 60 ? `${Math.ceil(seconds / 60)} min` : `${seconds} s`;
+}
+
 async function checkRateLimit(ip) {
     try {
         const banKey = `banned:${ip}`;
-        const isBanned = await redis.get(banKey);
-        if (isBanned) return false;
+        const bannedUntil = await redis.get(banKey);
+        if (bannedUntil) {
+            const remaining = Math.ceil(Number(bannedUntil) - Date.now() / 1000);
+            return { allowed: false, retryAfter: remaining > 0 ? remaining : 60 };
+        }
 
         const key = `ratelimit:${ip}`;
         const count = await redis.incr(key);
@@ -52,13 +61,14 @@ async function checkRateLimit(ip) {
         }
 
         if (count > 30) {
-            await redis.set(banKey, "1", { ex: 1800 });
-            return false;
+            const until = Math.ceil(Date.now() / 1000) + BAN_SECONDS;
+            await redis.set(banKey, until, { ex: BAN_SECONDS });
+            return { allowed: false, retryAfter: BAN_SECONDS };
         }
-        return true;
+        return { allowed: true };
     } catch (redisError) {
         console.error("[RATE_LIMIT_ERROR]", redisError.message);
-        return true;
+        return { allowed: true };
     }
 }
 
@@ -75,9 +85,15 @@ function decryptPayload(encryptedBase64, ivBase64, authTagBase64) {
 }
 
 app.use(async (req, res, next) => {
-    const allowed = await checkRateLimit(req.ip);
-    if (!allowed) {
-        return res.status(429).json({ status: 429, error: "Too Many Requests", message: "Rate limit exceeded" });
+    const result = await checkRateLimit(req.ip);
+    if (!result.allowed) {
+        res.set('Retry-After', String(result.retryAfter));
+        return res.status(429).json({
+            status: 429,
+            error: "Too Many Requests",
+            message: `Rate limit exceeded, retry in ${formatRetry(result.retryAfter)}`,
+            retry_after: result.retryAfter
+        });
     }
     next();
 });
@@ -188,6 +204,26 @@ app.post('/api/vault/stage2', async (req, res) => {
     return res.status(401).json({ status: 401, error: "Unauthorized", message: "Invalid calculation" });
 });
 
+function buildHallOfFameMessage(solveNumber, flag) {
+    const solveLine = solveNumber ? `SOLVE: #${solveNumber}\n` : "";
+    return "SECURITY ASSESSMENT COMPLETE\n\n" +
+        "STATUS: VULNERABILITY EXPLOITED\n" +
+        "TARGET: CTF APPLICATION CORE INFRASTRUCTURE\n" +
+        solveLine + "\n" +
+        "You completed all three stages of this assessment.\n\n" +
+        "Along the way you recovered secrets that were never meant to be handed to you, " +
+        "read a protocol that was never shown in full, and followed a multi-step session to its end.\n\n" +
+        "Each of these mirrors a real class of mobile security findings: secrets shipped inside client binaries, " +
+        "and information kept where a normal user never looks. " +
+        "The OWASP MASVS and MASTG are a good next stop if you want to go further.\n\n" +
+        "Thank you for playing. If you write about it, please leave the solution out so others can enjoy the challenge.\n\n\n" +
+        "DEVELOPER & ARCHITECT\nFiad Pratama\n\n" +
+        "TECHNOLOGY STACK\nAndroid (Java/C++) & Node.js (Vercel Edge)\n\n" +
+        "BACKGROUND SCORE\nW.A. Mozart - Dies Irae (Requiem in D minor)\n\n\n\n" +
+        "SESSION TERMINATED\n\n" +
+        "FLAG ACQUIRED\n" + flag;
+}
+
 // ==========================================
 // API ENDPOINT: /api/vault/verify-flag
 // ==========================================
@@ -197,31 +233,26 @@ app.post('/api/vault/verify-flag', async (req, res) => {
         return res.status(400).json({ status: 400, error: "Bad Request", message: "Flag parameter required" });
     }
 
-    const status = await redis.get(`flag:${flag}`);
+    const flagKey = `flag:${flag}`;
+    const status = await redis.get(flagKey);
 
     if (!status) {
         return res.status(401).json({ status: 401, error: "Unauthorized", message: "Invalid or expired flag" });
     }
 
+    let solveNumber = null;
     if (status === "unused") {
-        await redis.set(`flag:${flag}`, "claimed", { ex: 300 });
+        solveNumber = await redis.incr('stats:solves');
+        await redis.set(flagKey, `claimed:${solveNumber}`, { ex: 300 });
+    } else if (typeof status === 'string' && status.startsWith('claimed:')) {
+        solveNumber = Number(status.slice('claimed:'.length)) || null;
     }
 
     return res.status(200).json({
         success: true,
         title: "HALL OF FAME",
-        message: "SECURITY ASSESSMENT COMPLETE\n\n" +
-            "STATUS: VULNERABILITY EXPLOITED\n" +
-            "TARGET: CTF APPLICATION CORE INFRASTRUCTURE\n\n" +
-            "Congratulations on successfully completing this security assessment.\n\n" +
-            "This challenge was designed to evaluate advanced reverse engineering, dynamic instrumentation, and cryptographic analysis skills.\n\n" +
-            "By extracting the backdoor code from the native C++ layer (JNI) and intercepting the encrypted AES-256-GCM network payloads, you have demonstrated exceptional proficiency in mobile application security and protocol manipulation.\n\n" +
-            "This concludes the technical evaluation.\n\n\n" +
-            "DEVELOPER & ARCHITECT\nFiad Pratama\n\n" +
-            "TECHNOLOGY STACK\nAndroid (Java/C++) & Node.js (Vercel Edge)\n\n" +
-            "BACKGROUND SCORE\nW.A. Mozart - Dies Irae (Requiem in D minor)\n\n\n\n" +
-            "SESSION TERMINATED\n\n" +
-            "FLAG ACQUIRED\n" + flag
+        solve_number: solveNumber,
+        message: buildHallOfFameMessage(solveNumber, flag)
     });
 });
 
