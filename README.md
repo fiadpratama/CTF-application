@@ -52,7 +52,7 @@ Submit your extracted flag through the Android application to complete the asses
 
 ## Privacy & Data Handling
 
-This project is a self-contained security challenge and does not collect personal information beyond the IP address handling described below.
+This project is a self-contained security challenge and does not collect personal information beyond the IP address handling described below. An anonymous counter of completed solves is also stored, it contains no personal data.
 
 - **IP Addresses:** The backend temporarily processes client IP addresses exclusively for rate limiting and abuse prevention. Records are stored in an ephemeral Redis cache and expire automatically (up to 30 minutes for rate-limited clients).
 - **Network Traffic:** All communication is transmitted over HTTPS. Only challenge tokens and flags are evaluated; participants should never submit sensitive personal credentials.
