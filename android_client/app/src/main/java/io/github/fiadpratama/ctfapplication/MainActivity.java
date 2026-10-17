@@ -12,6 +12,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.LinearInterpolator;
 import android.view.inputmethod.InputMethodManager;
+import android.view.WindowManager;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.splashscreen.SplashScreen;
 import androidx.core.widget.NestedScrollView;
@@ -292,6 +293,8 @@ public class MainActivity extends AppCompatActivity {
     // HONOR SCREEN
     // ==========================================
     private void showHonorScreen(String message) {
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
         binding.mainLayout.setVisibility(View.GONE);
         binding.honorLayout.setVisibility(View.VISIBLE);
         binding.honorText.setText(message);
@@ -335,6 +338,7 @@ public class MainActivity extends AppCompatActivity {
                 binding.honorLayout.animate().alpha(0.0f).setDuration(5000).withEndAction(new Runnable() {
                     @Override
                     public void run() {
+                        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                         if (mediaPlayer != null) {
                             if (mediaPlayer.isPlaying()) mediaPlayer.stop();
                             mediaPlayer.release();
@@ -368,6 +372,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         if (toneGen != null) {
             toneGen.release();
             toneGen = null;
