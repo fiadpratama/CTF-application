@@ -205,18 +205,19 @@ app.post('/api/vault/stage2', async (req, res) => {
 });
 
 function buildHallOfFameMessage(solveNumber, flag) {
-    const solveLine = solveNumber ? `SOLVE: #${solveNumber}\n` : "";
+    const solveSection = solveNumber ? `SOLVE\n#${solveNumber}\n\n` : "";
     return "SECURITY ASSESSMENT COMPLETE\n\n" +
-        "STATUS: VULNERABILITY EXPLOITED\n" +
-        "TARGET: CTF APPLICATION CORE INFRASTRUCTURE\n" +
-        solveLine + "\n" +
-        "You completed all three stages of this assessment.\n\n" +
-        "Along the way you recovered secrets that were never meant to be handed to you, " +
-        "read a protocol that was never shown in full, and followed a multi-step session to its end.\n\n" +
-        "Each of these mirrors a real class of mobile security findings: secrets shipped inside client binaries, " +
-        "and information kept where a normal user never looks. " +
-        "The OWASP MASVS and MASTG are a good next stop if you want to go further.\n\n" +
-        "Thank you for playing. If you write about it, please leave the solution out so others can enjoy the challenge.\n\n\n" +
+        "STATUS\nVULNERABILITY EXPLOITED\n\n" +
+        "TARGET\nCTF APPLICATION CORE INFRASTRUCTURE\n\n" +
+        solveSection +
+        "You have successfully completed all three stages of this assessment.\n\n" +
+        "Through this challenge, you navigated simulated real-world mobile security vulnerabilities: " +
+        "discovering concealed assets embedded within compiled binaries, inspecting custom application protocols, " +
+        "and carrying a multi-step session to completion.\n\n" +
+        "These exercises reflect practical assessment scenarios aligned with the OWASP Mobile Application " +
+        "Security Verification Standard (MASVS) and Testing Guide (MASTG).\n\n" +
+        "Thank you for participating. If you publish a write-up, please consider omitting direct solutions " +
+        "and flags to preserve the challenge for future participants.\n\n\n" +
         "DEVELOPER & ARCHITECT\nFiad Pratama\n\n" +
         "TECHNOLOGY STACK\nAndroid (Java/C++) & Node.js (Vercel Edge)\n\n" +
         "BACKGROUND SCORE\nW.A. Mozart - Dies Irae (Requiem in D minor)\n\n\n\n" +
