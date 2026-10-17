@@ -25,6 +25,12 @@ import io.github.fiadpratama.ctfapplication.network.VaultApiClient;
 import io.github.fiadpratama.ctfapplication.ui.TerminalLogger;
 import io.github.fiadpratama.ctfapplication.util.SecurityChecks;
 
+/**
+ * Main Activity
+ *
+ * Core coordinator for the Android CTF client application. Manages immersive UI presentation,
+ * terminal console streaming, native cryptographic handshakes, and flag verification workflows.
+ */
 public class MainActivity extends AppCompatActivity {
 
     private ActivityMainBinding binding;
@@ -37,12 +43,18 @@ public class MainActivity extends AppCompatActivity {
         System.loadLibrary("native-crypto");
     }
 
+    /**
+     * Native call to recover the end-to-end symmetric encryption key.
+     */
     public native String getE2EKey();
+
+    /**
+     * Native call to recover the authorized handshake backdoor credential.
+     */
     public native String getBackdoor();
 
-    // ==========================================
-    // LIFECYCLE
-    // ==========================================
+    // --- Lifecycle ---
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         SplashScreen.installSplashScreen(this);
@@ -53,6 +65,7 @@ public class MainActivity extends AppCompatActivity {
 
         toneGen = new ToneGenerator(AudioManager.STREAM_SYSTEM, 100);
 
+        // Enforce immersive fullscreen sticky mode
         getWindow().getDecorView().setSystemUiVisibility(
             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
             | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
@@ -68,14 +81,21 @@ public class MainActivity extends AppCompatActivity {
         terminalLogger.log(getString(R.string.log_system_idle));
     }
 
-    // ==========================================
-    // MANAJEMEN STATE & KEYBOARD
-    // ==========================================
+    // --- UI State & Input Handling ---
+
+    /**
+     * Toggles interactive state of action buttons to prevent concurrent request spam.
+     *
+     * @param isEnabled true to enable user interaction; false to lock
+     */
     private void setButtonsState(boolean isEnabled) {
         binding.unlockButton.setEnabled(isEnabled);
         binding.submitFlagBtn.setEnabled(isEnabled);
     }
 
+    /**
+     * Dismisses the virtual software keyboard if currently active.
+     */
     private void hideKeyboard() {
         View view = this.getCurrentFocus();
         if (view != null) {
@@ -84,10 +104,13 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // ==========================================
-    // UI LISTENERS
-    // ==========================================
+    // --- View Listeners ---
+
+    /**
+     * Initializes click and touch listeners for interactive views.
+     */
     private void setupListeners() {
+        // Intercept touch on honor scroll view to prevent user interference with automated animation
         binding.honorScroll.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
@@ -120,9 +143,11 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    // ==========================================
-    // CORE LOGIC — STAGE 1
-    // ==========================================
+    // --- Handshake & Vault Unlock Pipeline ---
+
+    /**
+     * Executes the Phase 1 cryptographic handshake sequence on a background thread.
+     */
     private void unlockVault() {
         new Thread(new Runnable() {
             @Override
@@ -210,9 +235,13 @@ public class MainActivity extends AppCompatActivity {
         }).start();
     }
 
-    // ==========================================
-    // CORE LOGIC — FLAG VERIFICATION
-    // ==========================================
+    // --- Flag Verification Pipeline ---
+
+    /**
+     * Submits candidate flag to the remote server for validation and Hall of Fame unlocking.
+     *
+     * @param flag Submitted challenge flag
+     */
     private void verifyFlag(final String flag) {
         new Thread(new Runnable() {
             @Override
@@ -275,9 +304,14 @@ public class MainActivity extends AppCompatActivity {
         }).start();
     }
 
-    // ==========================================
-    // ERROR CODE TRANSLATION
-    // ==========================================
+    // --- Network Error Translation ---
+
+    /**
+     * Maps internal error codes to localized string resources.
+     *
+     * @param code Machine-readable error code
+     * @return User-facing error message
+     */
     private String translateErrorCode(String code) {
         switch (code) {
             case "NO_INTERNET":
@@ -289,9 +323,13 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // ==========================================
-    // HONOR SCREEN
-    // ==========================================
+    // --- Honor Screen Presentation ---
+
+    /**
+     * Triggers the cinematic Hall of Fame screen with audio playback and auto-scrolling credits.
+     *
+     * @param message Structured debriefing message received from the server
+     */
     private void showHonorScreen(String message) {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
