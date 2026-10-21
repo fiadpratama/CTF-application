@@ -24,6 +24,11 @@ app.use(versionGateMiddleware);
 // API Route Registration
 app.use('/api/vault', vaultRouter);
 
+// Fallback for undefined routes
+app.use((req, res) => {
+    res.status(404).json({ status: 404, error: "Not Found", message: "Resource not found" });
+});
+
 // Centralized Error Handling
 app.use(errorHandler);
 

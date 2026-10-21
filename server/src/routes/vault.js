@@ -18,9 +18,33 @@ const { buildHallOfFameMessage } = require('../services/hallOfFame');
 const router = express.Router();
 
 /**
- * Ingestion and validation endpoint for Stage 1.
- * Decrypts the incoming payload using AES-256-GCM, validates authorization claims,
- * and issues a signed, single-use JWT session token for the next stage.
+ * Atomic Lua script to claim a solve flag.
+ * Transitions state from 'unused' to 'claimed:<num>' and increments global solves in a single atomic step.
+ * Returns solve number (> 0), -1 if not found/expired, or -2 if corrupt/invalid.
+ */
+const CLAIM_FLAG_LUA = `
+local status = redis.call('GET', KEYS[1])
+if not status then
+    return -1
+end
+if status == 'unused' then
+    local solveNum = redis.call('INCR', KEYS[2])
+    redis.call('SET', KEYS[1], 'claimed:' .. tostring(solveNum), 'EX', 300)
+    return solveNum
+end
+if string.sub(status, 1, 8) == 'claimed:' then
+    local num = tonumber(string.sub(status, 9))
+    if num then
+        return num
+    end
+end
+return -2
+`;
+
+/**
+ * Stage 1: Client Handshake & Session Issuance
+ * Decrypts AES-256-GCM payload, validates backdoor code via timingSafeEqual,
+ * and issues a signed, single-use JWT session token with multiplier header.
  */
 router.post('/stage1', (req, res) => {
     const { payload, iv, tag } = req.body || {};
@@ -33,8 +57,13 @@ router.post('/stage1', (req, res) => {
         return res.status(401).json({ status: 401, error: "Unauthorized", message: "Decryption failed" });
     }
 
-    if (decryptedData.backdoor_code === BACKDOOR_CODE) {
-        const challengeNum = Math.floor(Math.random() * 10000) + 1000;
+    const candidateBackdoor = typeof decryptedData.backdoor_code === 'string' ? decryptedData.backdoor_code : '';
+    const candidateBuf = Buffer.from(candidateBackdoor, 'utf8');
+    const expectedBuf = Buffer.from(BACKDOOR_CODE, 'utf8');
+    const isAuthorized = candidateBuf.length === expectedBuf.length && crypto.timingSafeEqual(candidateBuf, expectedBuf);
+
+    if (isAuthorized) {
+        const challengeNum = crypto.randomInt(1000, 10000);
         const jti = crypto.randomBytes(16).toString('hex');
 
         const sessionToken = jwt.sign(
@@ -58,21 +87,29 @@ router.post('/stage1', (req, res) => {
 });
 
 /**
- * Verification endpoint for Stage 2.
- * Validates JWT session claims, checks replay protection (jti),
- * validates the submitted computation against server state, and releases the solve flag.
+ * Stage 2: Computational Proof & Flag Generation
+ * Validates JWT session claims, enforces single-use replay protection,
+ * verifies mathematical computation, and issues an ephemeral solve flag.
  */
 router.post('/stage2', async (req, res) => {
     const sessionToken = req.headers['x-session-token'];
-    if (!sessionToken) {
+    if (!sessionToken || typeof sessionToken !== 'string') {
         return res.status(403).json({ status: 403, error: "Forbidden", message: "Stage 1 not completed" });
     }
 
     let decodedSession;
     try {
         decodedSession = jwt.verify(sessionToken, JWT_SECRET, { algorithms: ['HS256'] });
-    } catch (jwtError) {
+    } catch {
         return res.status(403).json({ status: 403, error: "Forbidden", message: "Invalid or expired session token" });
+    }
+
+    if (!decodedSession ||
+        typeof decodedSession.challenge !== 'number' ||
+        !Number.isInteger(decodedSession.challenge) ||
+        typeof decodedSession.jti !== 'string' ||
+        !/^[0-9a-f]{32}$/.test(decodedSession.jti)) {
+        return res.status(403).json({ status: 403, error: "Forbidden", message: "Invalid session token format" });
     }
 
     const { payload, iv, tag } = req.body || {};
@@ -86,25 +123,32 @@ router.post('/stage2', async (req, res) => {
     }
 
     const { answer } = decryptedData;
-    if (!answer) {
+    if (answer === undefined || answer === null || (typeof answer !== 'string' && typeof answer !== 'number')) {
         return res.status(400).json({ status: 400, error: "Bad Request", message: "Missing answer parameter" });
     }
 
     const expectedAnswer = decodedSession.challenge * SECRET_MULTIPLIER;
-    const answerText = String(answer);
+    if (!Number.isSafeInteger(expectedAnswer)) {
+        return res.status(500).json({ status: 500, error: "Internal Server Error", message: "Calculation overflow" });
+    }
+
+    const answerText = String(answer).trim();
 
     if (/^\d+$/.test(answerText) && Number(answerText) === expectedAnswer) {
-        if (!decodedSession.jti) {
-            return res.status(403).json({ status: 403, error: "Forbidden", message: "Invalid session token format" });
-        }
-
         const usedKey = `jti:${decodedSession.jti}`;
-        const isAcquired = await redis.set(usedKey, "1", { nx: true, ex: 600 });
+        const isAcquired = await redis.set(usedKey, "1", { nx: true, ex: 660 });
         if (!isAcquired) {
             return res.status(403).json({ status: 403, error: "Forbidden", message: "Session token already used" });
         }
 
-        const flag = await generateSolveFlag();
+        let flag;
+        try {
+            flag = await generateSolveFlag();
+        } catch (flagErr) {
+            await redis.del(usedKey).catch(() => {});
+            throw flagErr;
+        }
+
         return res.status(200).json({
             status: 200,
             message: "Access granted",
@@ -116,32 +160,30 @@ router.post('/stage2', async (req, res) => {
 });
 
 /**
- * Flag redemption and verification endpoint.
- * Validates the submitted flag against ephemeral Redis records,
- * increments the global solve counter, and returns the completion debrief message.
+ * Stage 3: Flag Redemption & Debriefing
+ * Atomically verifies and claims the flag via Lua script, updates solve metrics,
+ * and returns the completion debriefing message.
  */
 router.post('/verify-flag', async (req, res) => {
     const { flag } = req.body || {};
-    if (!flag || typeof flag !== 'string') {
-        return res.status(400).json({ status: 400, error: "Bad Request", message: "Flag parameter required" });
+    if (!flag || typeof flag !== 'string' || !/^FLAG\{[0-9a-f]{32}\}$/.test(flag)) {
+        return res.status(400).json({ status: 400, error: "Bad Request", message: "Valid flag format required" });
     }
 
     const flagKey = `flag:${flag}`;
-    const status = await redis.get(flagKey);
+    const result = await redis.eval(CLAIM_FLAG_LUA, [flagKey, 'stats:solves'], []);
+    const solveNumber = typeof result === 'number' ? result : Number(result);
 
-    if (!status) {
+    if (solveNumber === -1) {
         return res.status(401).json({ status: 401, error: "Unauthorized", message: "Invalid or expired flag" });
     }
 
-    let solveNumber = null;
-    if (status === "unused") {
-        solveNumber = await redis.incr('stats:solves');
-        await redis.set(flagKey, `claimed:${solveNumber}`, { ex: 300 });
-    } else if (typeof status === 'string' && status.startsWith('claimed:')) {
-        solveNumber = Number(status.slice('claimed:'.length)) || null;
+    if (solveNumber <= 0 || !Number.isInteger(solveNumber)) {
+        return res.status(401).json({ status: 401, error: "Unauthorized", message: "Invalid or unrecognized flag status" });
     }
 
     return res.status(200).json({
+        status: 200,
         success: true,
         title: "HALL OF FAME",
         solve_number: solveNumber,
