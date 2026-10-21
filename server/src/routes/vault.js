@@ -18,34 +18,52 @@ const { buildHallOfFameMessage } = require('../services/hallOfFame');
 const router = express.Router();
 
 /**
- * Atomic Lua script to issue or retrieve an idempotent solve flag for Stage 2.
- * Validates session reuse, retrieves active flag if already issued, or atomically
- * registers the candidate flag and associates it with the session token.
- * Returns the flag string on success, -2 if corrupt/invalid entry, or -3 if previous flag expired.
+ * Atomic Lua script for Stage 2 flag issuance with best-effort rollback protection.
+ * KEYS: [1] session token (jti:<id>), [2] flag record (flag:<str>)
+ * ARGV: [1] candidate flag, [2] session TTL, [3] flag TTL
  */
 const ISSUE_FLAG_LUA = `
+local jtiTtl = tonumber(ARGV[2])
+local flagTtl = tonumber(ARGV[3])
+if not jtiTtl or jtiTtl <= 0 or not flagTtl or flagTtl <= 0 then
+    return -4
+end
+
+local candidateFlag = ARGV[1]
+if not candidateFlag or #candidateFlag ~= 38 or not string.match(candidateFlag, '^FLAG%{[0-9a-f]+%}$') then
+    return -4
+end
+
 local existing = redis.call('GET', KEYS[1])
 if existing then
-    if string.match(existing, '^FLAG%{[0-9a-f]+%}$') then
-        local flagStatus = redis.call('GET', 'flag:' .. existing)
-        if flagStatus then
-            return existing
-        else
-            return -3
-        end
+    if #existing == 38 and string.match(existing, '^FLAG%{[0-9a-f]+%}$') then
+        return existing
     else
         return -2
     end
 end
-redis.call('SET', KEYS[1], ARGV[1], 'EX', tonumber(ARGV[2]))
-redis.call('SET', KEYS[2], 'unused', 'EX', tonumber(ARGV[3]))
-return ARGV[1]
+
+if redis.call('EXISTS', KEYS[2]) == 1 then
+    return -6
+end
+
+local setFlagOk = redis.call('SET', KEYS[2], 'unused', 'NX', 'EX', flagTtl)
+if not setFlagOk then
+    return -6
+end
+
+local ok, setJtiResult = pcall(redis.call, 'SET', KEYS[1], candidateFlag, 'EX', jtiTtl)
+if not ok or not setJtiResult then
+    pcall(redis.call, 'DEL', KEYS[2])
+    return -5
+end
+
+return candidateFlag
 `;
 
 /**
- * Atomic Lua script to claim a solve flag.
- * Transitions state from 'unused' to 'claimed:<num>' and increments global solves in a single atomic step.
- * Returns solve number (> 0), -1 if not found/expired, or -2 if corrupt/invalid.
+ * Atomic Lua script to claim a solve flag with best-effort rollback on write error.
+ * KEYS: [1] flag record (flag:<str>), [2] global solves counter (stats:solves)
  */
 const CLAIM_FLAG_LUA = `
 local status = redis.call('GET', KEYS[1])
@@ -54,10 +72,14 @@ if not status then
 end
 if status == 'unused' then
     local solveNum = redis.call('INCR', KEYS[2])
-    redis.call('SET', KEYS[1], 'claimed:' .. tostring(solveNum), 'EX', 300)
+    local ok, setOk = pcall(redis.call, 'SET', KEYS[1], 'claimed:' .. tostring(solveNum), 'EX', 300)
+    if not ok or not setOk then
+        pcall(redis.call, 'DECR', KEYS[2])
+        return -2
+    end
     return solveNum
 end
-if string.match(status, '^claimed:%d+$') then
+if string.match(status, '^claimed:[1-9]%d*$') then
     local num = tonumber(string.sub(status, 9))
     if num and num >= 1 and num <= 9007199254740991 and num == math.floor(num) then
         return num
@@ -65,6 +87,21 @@ if string.match(status, '^claimed:%d+$') then
 end
 return -2
 `;
+
+/**
+ * Validates whether a flag status represents a valid lifecycle state.
+ * Accepts 'unused' or 'claimed:<num>' where <num> is a positive safe integer.
+ *
+ * @param {*} status Raw status value from Redis
+ * @returns {boolean} True if status is valid
+ */
+function isValidFlagStatus(status) {
+    if (status === 'unused') return true;
+    if (typeof status !== 'string') return false;
+    const match = /^claimed:([1-9]\d*)$/.exec(status);
+    if (!match) return false;
+    return Number.isSafeInteger(Number(match[1]));
+}
 
 /**
  * Stage 1: Client Handshake & Session Issuance
@@ -161,24 +198,85 @@ router.post('/stage2', async (req, res) => {
 
     if (/^\d+$/.test(answerText) && Number(answerText) === expectedAnswer) {
         const usedKey = `jti:${decodedSession.jti}`;
-        const candidateFlag = createFlagString();
-        const flagKey = `flag:${candidateFlag}`;
-        const result = await redis.eval(ISSUE_FLAG_LUA, [usedKey, flagKey], [candidateFlag, '660', '900']);
 
-        if (typeof result === 'string' && /^FLAG\{[0-9a-f]{32}\}$/.test(result)) {
-            return res.status(200).json({
-                status: 200,
-                message: "Access granted",
-                flag: result
+        const existingFlag = await redis.get(usedKey);
+        if (existingFlag) {
+            if (typeof existingFlag === 'string' &&
+                existingFlag.length === 38 &&
+                /^FLAG\{[0-9a-f]{32}\}$/.test(existingFlag)) {
+
+                const flagStatus = await redis.get(`flag:${existingFlag}`);
+                if (isValidFlagStatus(flagStatus)) {
+                    return res.status(200).json({
+                        status: 200,
+                        message: "Access granted",
+                        flag: existingFlag
+                    });
+                }
+
+                if (!flagStatus) {
+                    return res.status(410).json({
+                        status: 410,
+                        error: "Gone",
+                        message: "Issued flag has expired"
+                    });
+                }
+
+                return res.status(500).json({
+                    status: 500,
+                    error: "Internal Server Error",
+                    message: "Invalid flag state"
+                });
+            }
+
+            return res.status(403).json({
+                status: 403,
+                error: "Forbidden",
+                message: "Session token already processed or invalid"
+            });
+        }
+
+        let candidateFlag = createFlagString();
+        let flagKey = `flag:${candidateFlag}`;
+        let result = await redis.eval(ISSUE_FLAG_LUA, [usedKey, flagKey], [candidateFlag, '660', '900']);
+
+        if (result === -6) {
+            candidateFlag = createFlagString();
+            flagKey = `flag:${candidateFlag}`;
+            result = await redis.eval(ISSUE_FLAG_LUA, [usedKey, flagKey], [candidateFlag, '660', '900']);
+        }
+
+        if (typeof result === 'string' && result.length === 38 && /^FLAG\{[0-9a-f]{32}\}$/.test(result)) {
+            const status = await redis.get(`flag:${result}`);
+            if (isValidFlagStatus(status)) {
+                return res.status(200).json({
+                    status: 200,
+                    message: "Access granted",
+                    flag: result
+                });
+            }
+
+            if (!status) {
+                return res.status(410).json({
+                    status: 410,
+                    error: "Gone",
+                    message: "Issued flag has expired"
+                });
+            }
+
+            return res.status(500).json({
+                status: 500,
+                error: "Internal Server Error",
+                message: "Invalid flag state"
             });
         }
 
         const resultCode = Number(result);
-        if (resultCode === -3) {
-            return res.status(410).json({
-                status: 410,
-                error: "Gone",
-                message: "Issued flag has expired"
+        if (resultCode === -5) {
+            return res.status(500).json({
+                status: 500,
+                error: "Internal Server Error",
+                message: "Failed to persist flag session"
             });
         }
 
@@ -199,7 +297,7 @@ router.post('/stage2', async (req, res) => {
  */
 router.post('/verify-flag', async (req, res) => {
     const { flag } = req.body || {};
-    if (!flag || typeof flag !== 'string' || !/^FLAG\{[0-9a-f]{32}\}$/.test(flag)) {
+    if (!flag || typeof flag !== 'string' || flag.length !== 38 || !/^FLAG\{[0-9a-f]{32}\}$/.test(flag)) {
         return res.status(400).json({ status: 400, error: "Bad Request", message: "Valid flag format required" });
     }
 
@@ -212,7 +310,7 @@ router.post('/verify-flag', async (req, res) => {
     }
 
     if (solveNumber <= 0 || !Number.isSafeInteger(solveNumber)) {
-        return res.status(401).json({ status: 401, error: "Unauthorized", message: "Invalid or unrecognized flag status" });
+        return res.status(500).json({ status: 500, error: "Internal Server Error", message: "Unable to verify flag state" });
     }
 
     return res.status(200).json({
