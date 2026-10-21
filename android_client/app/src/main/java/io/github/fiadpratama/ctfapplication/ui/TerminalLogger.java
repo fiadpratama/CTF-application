@@ -53,6 +53,9 @@ public class TerminalLogger {
      * @param onComplete Optional callback invoked after all characters are typed
      */
     public void log(String message, OnCompleteListener onComplete) {
+        if (message == null) {
+            message = "";
+        }
         String fullMessage = message + "\n";
         for (char c : fullMessage.toCharArray()) {
             textQueue.add(c);
@@ -67,8 +70,10 @@ public class TerminalLogger {
      * Clears terminal text and cancels ongoing typing animations.
      */
     public void clear() {
+        handler.removeCallbacksAndMessages(null);
         textQueue.clear();
         isTyping = false;
+        pendingListener = null;
         terminalLog.setText("");
     }
 

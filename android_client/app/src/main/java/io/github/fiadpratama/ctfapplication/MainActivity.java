@@ -17,6 +17,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.splashscreen.SplashScreen;
 import androidx.core.widget.NestedScrollView;
 
+import java.nio.charset.StandardCharsets;
+
 import org.json.JSONObject;
 
 import io.github.fiadpratama.ctfapplication.crypto.CryptoHelper;
@@ -169,7 +171,7 @@ public class MainActivity extends AppCompatActivity {
                     handler.post(new Runnable() { @Override public void run() { terminalLogger.log(getString(R.string.log_loading_native_lib)); }});
                     Thread.sleep(400);
 
-                    byte[] keyBytes = getE2EKey().getBytes("UTF-8");
+                    byte[] keyBytes = getE2EKey().getBytes(StandardCharsets.UTF_8);
 
                     handler.post(new Runnable() { @Override public void run() { terminalLogger.log(getString(R.string.log_extracting_key)); }});
                     Thread.sleep(400);
@@ -250,6 +252,17 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     json.put("flag", flag);
                 } catch (Exception e) {
+                    handler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            terminalLogger.log(getString(R.string.err_unexpected), new TerminalLogger.OnCompleteListener() {
+                                @Override
+                                public void onComplete() {
+                                    setButtonsState(true);
+                                }
+                            });
+                        }
+                    });
                     return;
                 }
 
@@ -272,7 +285,8 @@ public class MainActivity extends AppCompatActivity {
                                         });
                                     }
                                 } else {
-                                    terminalLogger.log(getString(R.string.log_verification_failed), new TerminalLogger.OnCompleteListener() {
+                                    final String displayMessage = VaultApiClient.extractDisplayMessage(body);
+                                    terminalLogger.log("> [" + responseCode + "] " + displayMessage, new TerminalLogger.OnCompleteListener() {
                                         @Override
                                         public void onComplete() {
                                             if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);

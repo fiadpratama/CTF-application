@@ -2,12 +2,14 @@ package io.github.fiadpratama.ctfapplication.network;
 
 import org.json.JSONObject;
 import java.io.BufferedReader;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 
 import io.github.fiadpratama.ctfapplication.BuildConfig;
 
@@ -39,9 +41,10 @@ public class VaultApiClient {
      * @param callback Result callback handler
      */
     public static void postJson(String urlStr, JSONObject body, ApiCallback callback) {
+        HttpURLConnection conn = null;
         try {
             URL url = new URL(urlStr);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn = (HttpURLConnection) url.openConnection();
             conn.setConnectTimeout(5000);
             conn.setReadTimeout(5000);
             conn.setRequestMethod("POST");
@@ -49,19 +52,24 @@ public class VaultApiClient {
             conn.setRequestProperty("X-App-Version-Code", String.valueOf(BuildConfig.VERSION_CODE));
             conn.setDoOutput(true);
 
-            OutputStream os = conn.getOutputStream();
-            os.write(body.toString().getBytes("UTF-8"));
-            os.flush();
-            os.close();
+            byte[] jsonBytes = body.toString().getBytes(StandardCharsets.UTF_8);
+            try (OutputStream os = conn.getOutputStream()) {
+                os.write(jsonBytes);
+                os.flush();
+            }
 
             int responseCode = conn.getResponseCode();
-            BufferedReader in = new BufferedReader(new InputStreamReader(
-                    responseCode == 200 ? conn.getInputStream() : conn.getErrorStream()));
+            InputStream stream = (responseCode >= 200 && responseCode < 400) ? conn.getInputStream() : conn.getErrorStream();
+
             StringBuilder response = new StringBuilder();
-            String line;
-            while ((line = in.readLine()) != null) response.append(line);
-            in.close();
-            conn.disconnect();
+            if (stream != null) {
+                try (BufferedReader in = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = in.readLine()) != null) {
+                        response.append(line);
+                    }
+                }
+            }
 
             callback.onResponse(responseCode, response.toString());
         } catch (UnknownHostException e) {
@@ -70,6 +78,10 @@ public class VaultApiClient {
             callback.onError("TIMEOUT");
         } catch (Exception e) {
             callback.onError("UNEXPECTED");
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
         }
     }
 
@@ -80,6 +92,9 @@ public class VaultApiClient {
      * @return Extracted message string or fallback identifier
      */
     public static String extractDisplayMessage(String rawJsonBody) {
+        if (rawJsonBody == null || rawJsonBody.trim().isEmpty()) {
+            return "NO_RESPONSE";
+        }
         try {
             JSONObject json = new JSONObject(rawJsonBody);
             if (json.has("message")) return json.getString("message");
