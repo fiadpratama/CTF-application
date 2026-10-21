@@ -2,6 +2,7 @@ package io.github.fiadpratama.ctfapplication.crypto;
 
 import android.util.Base64;
 import org.json.JSONObject;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import javax.crypto.Cipher;
@@ -26,8 +27,11 @@ public class CryptoHelper {
      * @throws Exception if hashing algorithm or encoding fails
      */
     public static String computeHandshakeSignature(String timestamp) throws Exception {
+        if (timestamp == null) {
+            throw new IllegalArgumentException("Timestamp cannot be null");
+        }
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        byte[] hashBytes = digest.digest((timestamp + HANDSHAKE_INTEGRITY_SEED).getBytes("UTF-8"));
+        byte[] hashBytes = digest.digest((timestamp + HANDSHAKE_INTEGRITY_SEED).getBytes(StandardCharsets.UTF_8));
         StringBuilder hexString = new StringBuilder();
         for (byte b : hashBytes) {
             String hex = Integer.toHexString(0xff & b);
@@ -46,6 +50,13 @@ public class CryptoHelper {
      * @throws Exception if encryption fails
      */
     public static JSONObject encryptPayload(JSONObject plainPayload, byte[] keyBytes) throws Exception {
+        if (plainPayload == null) {
+            throw new IllegalArgumentException("Payload cannot be null");
+        }
+        if (keyBytes == null || keyBytes.length != 32) {
+            throw new IllegalArgumentException("Key must be a non-null 32-byte array (AES-256)");
+        }
+
         byte[] iv = new byte[12];
         new SecureRandom().nextBytes(iv);
 
@@ -53,7 +64,7 @@ public class CryptoHelper {
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
         cipher.init(Cipher.ENCRYPT_MODE, secretKey, new GCMParameterSpec(128, iv));
 
-        byte[] encryptedData = cipher.doFinal(plainPayload.toString().getBytes("UTF-8"));
+        byte[] encryptedData = cipher.doFinal(plainPayload.toString().getBytes(StandardCharsets.UTF_8));
         int tagLength = 16;
         byte[] cipherText = new byte[encryptedData.length - tagLength];
         byte[] tag = new byte[tagLength];
