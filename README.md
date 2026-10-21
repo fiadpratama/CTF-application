@@ -12,7 +12,7 @@ This CTF simulates a mobile application security assessment scenario, testing sk
 
 ## Architecture
 
-- **Client (Android):** Java with a native C++ (JNI) component, hardened with timing obfuscation, secondary key encoding, and passive anti-hooking detection.
+- **Client (Android):** Java with a native C++ (JNI) component (Android 8.0+ / API 26+, targeting API 34), hardened with timing obfuscation, secondary key encoding, and passive anti-hooking detection.
 - **Security Engine:** Native constants are obfuscated at compile-time to resist casual static string analysis.
 - **Backend (Serverless):** Node.js REST API deployed on the Vercel Edge Network. Enforces a minimum supported client version and rejects outdated builds.
 - **Cryptography:** AES-256-GCM end-to-end encryption for client-server payload transmission.
@@ -41,7 +41,7 @@ Passing Phase 1 unlocks a server-side validation step involving a value you don'
 
 ### Phase 3: Final Verification
 
-Submit your extracted flag through the Android application to complete the assessment.
+Submit your extracted flag through the Android application to complete the assessment and unlock the Hall of Fame.
 
 ## Getting Started
 

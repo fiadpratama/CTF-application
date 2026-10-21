@@ -12,7 +12,7 @@ CTF ini menyimulasikan skenario penilaian keamanan aplikasi seluler (*mobile app
 
 ## Arsitektur
 
-- **Klien (Android):** Java dengan komponen native C++ (JNI), diperkuat dengan *timing obfuscation*, enkoding kunci sekunder, serta deteksi *anti-hooking* pasif.
+- **Klien (Android):** Java dengan komponen native C++ (JNI) (Android 8.0+ / API 26+, menargetkan API 34), diperkuat dengan *timing obfuscation*, enkoding kunci sekunder, serta deteksi *anti-hooking* pasif.
 - **Security Engine:** Konstanta native diobfuskasi saat waktu kompilasi (*compile-time*) untuk menahan analisis string statis sederhana.
 - **Backend (Serverless):** REST API Node.js yang di-deploy pada Vercel Edge Network. Menegakkan versi minimum aplikasi klien dan menolak build yang usang.
 - **Kriptografi:** Enkripsi *end-to-end* AES-256-GCM untuk transmisi payload antara klien dan server.
@@ -41,7 +41,7 @@ Menyelesaikan Tahap 1 akan membuka langkah validasi di sisi server yang melibatk
 
 ### Tahap 3: Verifikasi Akhir
 
-Kirimkan flag yang berhasil diekstrak melalui aplikasi Android untuk menyelesaikan asesmen.
+Kirimkan flag yang berhasil diekstrak melalui aplikasi Android untuk menyelesaikan asesmen dan membuka layar Hall of Fame.
 
 ## Memulai
 
