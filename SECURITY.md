@@ -15,7 +15,7 @@ Reading the source will not reveal these values, but it does reveal how the chal
 
 ## Architecture Notes
 
-Stage 1 session state is carried in signed, stateless JWTs, and each token can be redeemed only once. State that must be shared across serverless function instances — flag records, used session identifiers, and rate-limiting counters — is stored in Upstash Redis, provisioned through the Vercel Marketplace. Flags are short-lived and, after their first successful verification, remain valid only for a brief grace window.
+Stage 1 session state is carried in signed, stateless JWTs. To ensure fault tolerance against network drops while preventing multi-flag abuse, Stage 2 validation is idempotent: each session token binds to a single unique flag, returning the same flag on retries without re-issuance. State that must be shared across serverless function instances — active flag records, session replay caches, and rate-limiting counters — is stored in Upstash Redis, provisioned through the Vercel Marketplace. Flags have a short lifetime (15-minute validity) and transition to a 5-minute grace window upon initial verification, allowing idempotent resubmissions without inflating solve metrics.
 
 ## Incident History
 
