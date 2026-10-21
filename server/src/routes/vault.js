@@ -12,10 +12,35 @@ const jwt = require('jsonwebtoken');
 const { BACKDOOR_CODE, SECRET_MULTIPLIER, JWT_SECRET } = require('../config');
 const redis = require('../services/redis');
 const { decryptPayload } = require('../services/crypto');
-const { generateSolveFlag } = require('../services/flags');
+const { createFlagString } = require('../services/flags');
 const { buildHallOfFameMessage } = require('../services/hallOfFame');
 
 const router = express.Router();
+
+/**
+ * Atomic Lua script to issue or retrieve an idempotent solve flag for Stage 2.
+ * Validates session reuse, retrieves active flag if already issued, or atomically
+ * registers the candidate flag and associates it with the session token.
+ * Returns the flag string on success, -2 if corrupt/invalid entry, or -3 if previous flag expired.
+ */
+const ISSUE_FLAG_LUA = `
+local existing = redis.call('GET', KEYS[1])
+if existing then
+    if string.match(existing, '^FLAG%{[0-9a-f]+%}$') then
+        local flagStatus = redis.call('GET', 'flag:' .. existing)
+        if flagStatus then
+            return existing
+        else
+            return -3
+        end
+    else
+        return -2
+    end
+end
+redis.call('SET', KEYS[1], ARGV[1], 'EX', tonumber(ARGV[2]))
+redis.call('SET', KEYS[2], 'unused', 'EX', tonumber(ARGV[3]))
+return ARGV[1]
+`;
 
 /**
  * Atomic Lua script to claim a solve flag.
@@ -136,23 +161,31 @@ router.post('/stage2', async (req, res) => {
 
     if (/^\d+$/.test(answerText) && Number(answerText) === expectedAnswer) {
         const usedKey = `jti:${decodedSession.jti}`;
-        const existingFlag = await redis.get(usedKey);
-        if (existingFlag && typeof existingFlag === 'string' && /^FLAG\{[0-9a-f]{32}\}$/.test(existingFlag)) {
+        const candidateFlag = createFlagString();
+        const flagKey = `flag:${candidateFlag}`;
+        const result = await redis.eval(ISSUE_FLAG_LUA, [usedKey, flagKey], [candidateFlag, '660', '900']);
+
+        if (typeof result === 'string' && /^FLAG\{[0-9a-f]{32}\}$/.test(result)) {
             return res.status(200).json({
                 status: 200,
                 message: "Access granted",
-                flag: existingFlag
+                flag: result
             });
         }
 
-        const flag = await generateSolveFlag();
-        const isAcquired = await redis.set(usedKey, flag, { nx: true, ex: 660 });
-        const issuedFlag = isAcquired ? flag : (await redis.get(usedKey)) || flag;
+        const resultCode = Number(result);
+        if (resultCode === -3) {
+            return res.status(410).json({
+                status: 410,
+                error: "Gone",
+                message: "Issued flag has expired"
+            });
+        }
 
-        return res.status(200).json({
-            status: 200,
-            message: "Access granted",
-            flag: issuedFlag
+        return res.status(403).json({
+            status: 403,
+            error: "Forbidden",
+            message: "Session token already processed or invalid"
         });
     }
 
