@@ -32,9 +32,9 @@ if status == 'unused' then
     redis.call('SET', KEYS[1], 'claimed:' .. tostring(solveNum), 'EX', 300)
     return solveNum
 end
-if string.sub(status, 1, 8) == 'claimed:' then
+if string.match(status, '^claimed:%d+$') then
     local num = tonumber(string.sub(status, 9))
-    if num then
+    if num and num >= 1 and num <= 9007199254740991 and num == math.floor(num) then
         return num
     end
 end
@@ -88,7 +88,7 @@ router.post('/stage1', (req, res) => {
 
 /**
  * Stage 2: Computational Proof & Flag Generation
- * Validates JWT session claims, enforces single-use replay protection,
+ * Validates JWT session claims, enforces idempotent flag issuance,
  * verifies mathematical computation, and issues an ephemeral solve flag.
  */
 router.post('/stage2', async (req, res) => {
@@ -136,23 +136,23 @@ router.post('/stage2', async (req, res) => {
 
     if (/^\d+$/.test(answerText) && Number(answerText) === expectedAnswer) {
         const usedKey = `jti:${decodedSession.jti}`;
-        const isAcquired = await redis.set(usedKey, "1", { nx: true, ex: 660 });
-        if (!isAcquired) {
-            return res.status(403).json({ status: 403, error: "Forbidden", message: "Session token already used" });
+        const existingFlag = await redis.get(usedKey);
+        if (existingFlag && typeof existingFlag === 'string' && /^FLAG\{[0-9a-f]{32}\}$/.test(existingFlag)) {
+            return res.status(200).json({
+                status: 200,
+                message: "Access granted",
+                flag: existingFlag
+            });
         }
 
-        let flag;
-        try {
-            flag = await generateSolveFlag();
-        } catch (flagErr) {
-            await redis.del(usedKey).catch(() => {});
-            throw flagErr;
-        }
+        const flag = await generateSolveFlag();
+        const isAcquired = await redis.set(usedKey, flag, { nx: true, ex: 660 });
+        const issuedFlag = isAcquired ? flag : (await redis.get(usedKey)) || flag;
 
         return res.status(200).json({
             status: 200,
             message: "Access granted",
-            flag
+            flag: issuedFlag
         });
     }
 
@@ -178,7 +178,7 @@ router.post('/verify-flag', async (req, res) => {
         return res.status(401).json({ status: 401, error: "Unauthorized", message: "Invalid or expired flag" });
     }
 
-    if (solveNumber <= 0 || !Number.isInteger(solveNumber)) {
+    if (solveNumber <= 0 || !Number.isSafeInteger(solveNumber)) {
         return res.status(401).json({ status: 401, error: "Unauthorized", message: "Invalid or unrecognized flag status" });
     }
 
