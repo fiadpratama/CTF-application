@@ -1,22 +1,21 @@
 /**
  * Flag Generation Service
  * 
- * Generates cryptographically secure single-use solve flags with ephemeral TTL.
+ * Generates cryptographically secure candidate solve flags in FLAG{...} format.
  */
 const crypto = require('crypto');
-const redis = require('./redis');
 
 /**
- * Generates an ephemeral challenge completion flag and registers it in Redis.
+ * Creates a cryptographically random candidate flag string in FLAG{...} format.
+ * Format: 38 characters total ('FLAG{' + 32 hex chars + '}').
  * 
- * @returns {Promise<string>} Generated flag string in FLAG{...} format
+ * @returns {string} 38-character flag string
  */
-function generateSolveFlag() {
+function createFlagString() {
     const raw = crypto.randomBytes(16).toString('hex');
-    const flag = `FLAG{${raw}}`;
-    return redis.set(`flag:${flag}`, "unused", { ex: 900 }).then(() => flag);
+    return `FLAG{${raw}}`;
 }
 
 module.exports = {
-    generateSolveFlag
+    createFlagString
 };
