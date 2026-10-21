@@ -26,8 +26,8 @@ android {
         }
     }
 
-    aaptOptions {
-        noCompress "bin"
+    androidResources {
+        noCompress 'bin'
     }
 
     signingConfigs {
