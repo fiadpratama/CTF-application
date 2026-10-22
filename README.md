@@ -50,9 +50,23 @@ Submit your extracted flag through the Android application to complete the asses
 3. Configure your proxy environment if using Burp Suite/ZAP (see the note above on HTTPS interception).
 4. Begin your analysis.
 
+### Building from Source (Optional)
+
+If you are hosting or customizing the challenge:
+```bash
+# 1. Setup local native secrets configuration
+cp android_client/app/src/main/cpp/native-secrets.properties.example android_client/app/src/main/cpp/native-secrets.properties
+
+# 2. Build Release APK using Gradle Wrapper
+cd android_client
+./gradlew assembleRelease      # Linux / macOS
+gradlew.bat assembleRelease    # Windows
+```
+The native key generator task executes automatically before compilation. The generated APK will be available in `android_client/app/build/outputs/apk/release/app-release.apk`.
+
 ## Privacy & Data Handling
 
-This project is a self-contained security challenge and does not collect personal information beyond the IP address handling described below. An anonymous counter of completed solves is also stored, it contains no personal data.
+This project is a self-contained security challenge and does not collect personal information beyond the IP address handling described below. An anonymous counter of completed solves is also stored; it contains no personal data.
 
 - **IP Addresses:** The backend temporarily processes client IP addresses exclusively for rate limiting and abuse prevention. Records are stored in an ephemeral Redis cache and expire automatically (up to 30 minutes for rate-limited clients).
 - **Network Traffic:** All communication is transmitted over HTTPS. Only challenge tokens and flags are evaluated; participants should never submit sensitive personal credentials.

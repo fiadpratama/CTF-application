@@ -8,7 +8,7 @@ CTF Application is an educational mobile security challenge. It is designed to b
 
 This repository is open source, including the native C++ layer and backend server code. Cryptographic secrets (the E2EE key, backdoor authorization token, session signing key, and stage-2 multiplier) are kept out of version control; see Incident History for earlier exposure and remediation. They are:
 
-- Generated locally from a git-ignored configuration file (`native-secrets.properties`) for the Android client, via `generate_keys.py`.
+- Generated locally from a git-ignored configuration file (`native-secrets.properties`) for the Android client, executed automatically during the Gradle pre-build lifecycle.
 - Injected via environment variables for the backend server (`E2EE_KEY`, `BACKDOOR_CODE`, `SECRET_MULTIPLIER`, `JWT_SECRET`).
 
 Reading the source will not reveal these values, but it does reveal how the challenge works. Participants who prefer to discover the mechanics themselves may want to avoid reading the backend and native sources before attempting the challenge.

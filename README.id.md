@@ -50,9 +50,23 @@ Kirimkan flag yang berhasil diekstrak melalui aplikasi Android untuk menyelesaik
 3. Konfigurasikan lingkungan proksi Anda jika menggunakan Burp Suite/ZAP (lihat catatan di atas mengenai intersepsi HTTPS).
 4. Mulai analisis Anda.
 
+### Membangun dari Kode Sumber (Opsional)
+
+Jika Anda ingin meng-host atau memodifikasi tantangan ini secara mandiri:
+```bash
+# 1. Siapkan konfigurasi rahasia native lokal
+cp android_client/app/src/main/cpp/native-secrets.properties.example android_client/app/src/main/cpp/native-secrets.properties
+
+# 2. Bangun APK rilis menggunakan Gradle Wrapper
+cd android_client
+./gradlew assembleRelease      # Linux / macOS
+gradlew.bat assembleRelease    # Windows
+```
+Task pembuat kunci native otomatis berjalan sebelum kompilasi. APK yang dihasilkan akan tersedia di `android_client/app/build/outputs/apk/release/app-release.apk`.
+
 ## Privasi & Pengelolaan Data
 
-Proyek ini adalah tantangan keamanan mandiri dan tidak mengumpulkan informasi pribadi selain penanganan alamat IP yang dijelaskan di bawah. Sebuah penghitung anonim jumlah penyelesaian juga disimpan, penghitung ini tidak memuat data pribadi.
+Proyek ini adalah tantangan keamanan mandiri dan tidak mengumpulkan informasi pribadi selain penanganan alamat IP yang dijelaskan di bawah. Sebuah penghitung anonim jumlah penyelesaian juga disimpan; data ini tidak memuat informasi pribadi apa pun.
 
 - **Alamat IP:** Backend memproses alamat IP klien sementara secara eksklusif untuk *rate limiting* dan pencegahan penyalahgunaan. Data disimpan dalam cache Redis sementara dan kedaluwarsa secara otomatis (maksimal 30 menit bagi klien yang terkena pembatasan).
 - **Trafik Jaringan:** Seluruh komunikasi ditransmisikan melalui HTTPS. Hanya token tantangan dan flag yang dievaluasi; peserta tidak boleh memasukkan kredensial pribadi yang sensitif.
