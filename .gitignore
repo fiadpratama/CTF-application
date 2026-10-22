@@ -1,12 +1,58 @@
-# CTF Internal Design & Solution Documentation (Strictly Private)
+# ==============================================================================
+# CTF Application — Unified Root Git Ignore
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. CTF Secrets & Private Design Documentation (Strictly Private)
+# ------------------------------------------------------------------------------
 CTF-DESIGN.md
 *-DESIGN.md
 private/
 solution/
 
-# OS and Editor files
+# Android Native Secret Configuration
+android_client/app/src/main/cpp/generated-keys.h
+android_client/app/src/main/cpp/native-secrets.properties
+
+# Android Release Signing Keystore & Properties
+android_client/keystore.properties
+android_client/app/keystore.jks
+*.jks
+*.keystore
+
+# Backend Server Environment Variables
+server/.env*
+.env*
+
+# ------------------------------------------------------------------------------
+# 2. Android Client & Gradle Build Artifacts
+# ------------------------------------------------------------------------------
+*.iml
+.gradle/
+**/build/
+**/captures/
+**/.externalNativeBuild/
+**/.cxx/
+local.properties
+**/local.properties
+
+# ------------------------------------------------------------------------------
+# 3. Serverless Backend & Node.js Artifacts
+# ------------------------------------------------------------------------------
+node_modules/
+**/node_modules/
+.vercel/
+**/package-lock.json.bak
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ------------------------------------------------------------------------------
+# 4. OS & IDE Metadata
+# ------------------------------------------------------------------------------
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
 *.swp
+*.bak
