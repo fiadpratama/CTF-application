@@ -1,15 +1,12 @@
 @echo off
-setlocal
+setlocal EnableDelayedExpansion
 
 echo =======================================================
 echo           CTF APPLICATION - APK BUILDER
 echo =======================================================
 
 rem Override via environment variables if your setup differs.
-rem PYTHON_EXE example with spaces: set PYTHON_EXE="C:\Path With Spaces\python.exe"
 if not defined TOOLS_DIR set "TOOLS_DIR=D:\Coding\Tools"
-if not defined PYTHON_EXE set "PYTHON_EXE=py -3"
-
 set "BASE_DIR=%~dp0"
 set "JAVA_HOME=%TOOLS_DIR%\jdk17"
 set "ANDROID_SDK_ROOT=%TOOLS_DIR%\android_sdk"
@@ -25,11 +22,14 @@ echo.
 echo [1/4] Checking secret configuration...
 if not exist "%SECRETS_FILE%" (
     echo [FAILED] native-secrets.properties was not found.
-    echo          Copy native-secrets.properties.example to native-secrets.properties and fill in your own values.
+    echo          Copy native-secrets.properties.example to native-secrets.properties and fill in your values.
     exit /b 1
 )
 
 echo [2/4] Generating native key header...
+if not defined PYTHON_EXE (
+    where py >nul 2>nul && (set "PYTHON_EXE=py -3") || (set "PYTHON_EXE=python")
+)
 %PYTHON_EXE% "%CPP_DIR%\generate_keys.py"
 if errorlevel 1 (
     echo [FAILED] Key generation failed. See the message above.
@@ -39,22 +39,35 @@ if errorlevel 1 (
 
 echo.
 echo [3/4] Compiling Java and C++ source code...
-echo.
-cd /d "%BASE_DIR%android_client"
-call gradle assembleRelease
+where gradle >nul 2>nul
 if errorlevel 1 (
-    echo.
-    echo [FAILED] An error occurred during the build process.
+    echo [FAILED] 'gradle' command was not found in PATH or TOOLS_DIR.
     exit /b 1
+)
+
+pushd "%BASE_DIR%android_client"
+call gradle assembleRelease
+set "BUILD_STATUS=%ERRORLEVEL%"
+popd
+
+if not %BUILD_STATUS%==0 (
+    echo.
+    echo [FAILED] An error occurred during the Gradle build process.
+    exit /b %BUILD_STATUS%
 )
 
 echo.
 echo [4/4] Computing APK checksum...
+if not exist "%APK_PATH%" (
+    echo [FAILED] Built APK output was not found at:
+    echo          %APK_PATH%
+    exit /b 1
+)
 certutil -hashfile "%APK_PATH%" SHA256
 
 echo.
 echo =======================================================
 echo [SUCCESS] APK built successfully!
-echo Output path: android_client\app\build\outputs\apk\release\app-release.apk
+echo Output path: %APK_PATH%
 echo =======================================================
 exit /b 0
