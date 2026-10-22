@@ -1,0 +1,39 @@
+# CTF Secrets & Internal Documentation
+CTF-DESIGN.md
+*-DESIGN.md
+private/
+solution/
+android_client/app/src/main/cpp/generated-keys.h
+android_client/app/src/main/cpp/native-secrets.properties
+
+# Signing Credentials & Environment
+android_client/keystore.properties
+android_client/app/keystore.jks
+*.jks
+*.keystore
+.env*
+server/.env*
+
+# Android & Gradle
+*.iml
+.gradle/
+local.properties
+**/build/
+**/captures/
+**/.externalNativeBuild/
+**/.cxx/
+
+# Node.js & Vercel
+node_modules/
+.vercel/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# System & IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.bak
