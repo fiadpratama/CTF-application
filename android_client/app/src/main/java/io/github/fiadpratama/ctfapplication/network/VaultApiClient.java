@@ -43,6 +43,9 @@ public class VaultApiClient {
     public static void postJson(String urlStr, JSONObject body, ApiCallback callback) {
         HttpURLConnection conn = null;
         try {
+            if (body == null) {
+                body = new JSONObject();
+            }
             URL url = new URL(urlStr);
             conn = (HttpURLConnection) url.openConnection();
             conn.setConnectTimeout(5000);
@@ -50,6 +53,7 @@ public class VaultApiClient {
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json");
             conn.setRequestProperty("X-App-Version-Code", String.valueOf(BuildConfig.VERSION_CODE));
+            conn.setUseCaches(false);
             conn.setDoOutput(true);
 
             byte[] jsonBytes = body.toString().getBytes(StandardCharsets.UTF_8);
@@ -71,13 +75,21 @@ public class VaultApiClient {
                 }
             }
 
-            callback.onResponse(responseCode, response.toString());
-        } catch (UnknownHostException e) {
-            callback.onError("NO_INTERNET");
+            if (callback != null) {
+                callback.onResponse(responseCode, response.toString());
+            }
+        } catch (UnknownHostException | java.net.ConnectException | java.net.NoRouteToHostException e) {
+            if (callback != null) {
+                callback.onError("NO_INTERNET");
+            }
         } catch (SocketTimeoutException e) {
-            callback.onError("TIMEOUT");
+            if (callback != null) {
+                callback.onError("TIMEOUT");
+            }
         } catch (Exception e) {
-            callback.onError("UNEXPECTED");
+            if (callback != null) {
+                callback.onError("UNEXPECTED");
+            }
         } finally {
             if (conn != null) {
                 conn.disconnect();

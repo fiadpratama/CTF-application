@@ -1,0 +1,12 @@
+# CTF Internal Design & Solution Documentation (Strictly Private)
+CTF-DESIGN.md
+*-DESIGN.md
+private/
+solution/
+
+# OS and Editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

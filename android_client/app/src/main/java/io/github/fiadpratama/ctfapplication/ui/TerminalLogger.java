@@ -23,13 +23,30 @@ public class TerminalLogger {
         void onComplete();
     }
 
+    private static class LogEntry {
+        final String text;
+        final OnCompleteListener listener;
+        int charIndex = 0;
+
+        LogEntry(String text, OnCompleteListener listener) {
+            this.text = text;
+            this.listener = listener;
+        }
+    }
+
     private final TextView terminalLog;
     private final NestedScrollView scrollView;
     private final Handler handler;
-    private final Queue<Character> textQueue = new LinkedList<>();
+    private final Queue<LogEntry> entryQueue = new LinkedList<>();
     private final Random random = new Random();
     private boolean isTyping = false;
-    private OnCompleteListener pendingListener;
+
+    private final Runnable typeRunnable = new Runnable() {
+        @Override
+        public void run() {
+            typeNextCharacter();
+        }
+    };
 
     public TerminalLogger(TextView terminalLog, NestedScrollView scrollView, Handler handler) {
         this.terminalLog = terminalLog;
@@ -56,24 +73,19 @@ public class TerminalLogger {
         if (message == null) {
             message = "";
         }
-        String fullMessage = message + "\n";
-        for (char c : fullMessage.toCharArray()) {
-            textQueue.add(c);
-        }
-        pendingListener = onComplete;
+        entryQueue.add(new LogEntry(message + "\n", onComplete));
         if (!isTyping) {
             typeNextCharacter();
         }
     }
 
     /**
-     * Clears terminal text and cancels ongoing typing animations.
+     * Clears terminal text and cancels ongoing typing animations safely.
      */
     public void clear() {
-        handler.removeCallbacksAndMessages(null);
-        textQueue.clear();
+        handler.removeCallbacks(typeRunnable);
+        entryQueue.clear();
         isTyping = false;
-        pendingListener = null;
         terminalLog.setText("");
     }
 
@@ -81,17 +93,19 @@ public class TerminalLogger {
      * Sequentially pops and appends characters to the TextView with randomized latency.
      */
     private void typeNextCharacter() {
-        if (textQueue.isEmpty()) {
+        if (entryQueue.isEmpty()) {
             isTyping = false;
-            if (pendingListener != null) {
-                OnCompleteListener listener = pendingListener;
-                pendingListener = null;
-                listener.onComplete();
-            }
             return;
         }
+
         isTyping = true;
-        char c = textQueue.poll();
+        LogEntry currentEntry = entryQueue.peek();
+        if (currentEntry == null) {
+            isTyping = false;
+            return;
+        }
+
+        char c = currentEntry.text.charAt(currentEntry.charIndex++);
         terminalLog.append(String.valueOf(c));
 
         scrollView.post(new Runnable() {
@@ -101,13 +115,19 @@ public class TerminalLogger {
             }
         });
 
-        int delay = random.nextInt(15) + 5;
-
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                typeNextCharacter();
+        if (currentEntry.charIndex >= currentEntry.text.length()) {
+            entryQueue.poll();
+            if (currentEntry.listener != null) {
+                currentEntry.listener.onComplete();
             }
-        }, delay);
+        }
+
+        if (entryQueue.isEmpty()) {
+            isTyping = false;
+            return;
+        }
+
+        int delay = random.nextInt(15) + 5;
+        handler.postDelayed(typeRunnable, delay);
     }
 }
