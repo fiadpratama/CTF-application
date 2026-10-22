@@ -1,7 +1,7 @@
 """Generate generated-keys.h from native-secrets.properties.
 
-Run automatically by build_apk.bat. The properties file is git-ignored and must
-never be committed; see native-secrets.properties.example for the format.
+Executed automatically during the Gradle pre-build lifecycle (or standalone).
+The properties file is git-ignored and must never be committed; see native-secrets.properties.example.
 """
 
 import os

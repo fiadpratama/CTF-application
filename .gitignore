@@ -1,6 +1,4 @@
 # CTF Secrets & Internal Documentation
-CTF-DESIGN.md
-*-DESIGN.md
 private/
 solution/
 android_client/app/src/main/cpp/generated-keys.h
