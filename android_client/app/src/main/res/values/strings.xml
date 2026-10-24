@@ -23,8 +23,12 @@
     <!-- Flag Verification Pipeline -->
     <string name="log_flag_submitting">&gt; [NET] Submitting challenge flag for verification...</string>
 
-    <!-- Network Errors -->
-    <string name="err_no_internet">&gt; [ERR] Network connection failed</string>
-    <string name="err_timeout">&gt; [504] Connection timeout</string>
+    <!-- Terminal Log Pipeline -->
+    <string name="err_no_internet">&gt; [ERR] Network unavailable</string>
+    <string name="err_timeout">&gt; [504] Connection timed out</string>
     <string name="err_unexpected">&gt; [500] Internal server error</string>
+
+    <!-- Toast Notifications (Bottom-Center Pop-ups) -->
+    <string name="toast_rate_limited">Too many requests. Please retry in %s.</string>
+    <string name="toast_empty_flag">Please enter a challenge flag before submitting.</string>
 </resources>

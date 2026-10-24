@@ -12,24 +12,19 @@ const vaultRouter = require('./routes/vault');
 
 const app = express();
 
-// Security & Transport Configuration
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
-// Global Middleware Pipeline (executed before body parsing to guard against malformed/oversized floods)
 app.use(rateLimitMiddleware);
 app.use(versionGateMiddleware);
 app.use(express.json({ limit: '10kb' }));
 
-// API Route Registration
 app.use('/api/vault', vaultRouter);
 
-// Fallback for undefined routes
 app.use((req, res) => {
     res.status(404).json({ status: 404, error: "Not Found", message: "Resource not found" });
 });
 
-// Centralized Error Handling
 app.use(errorHandler);
 
 module.exports = app;

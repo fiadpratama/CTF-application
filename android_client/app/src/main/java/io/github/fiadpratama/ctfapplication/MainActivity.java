@@ -9,16 +9,19 @@ import android.media.ToneGenerator;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.LinearInterpolator;
 import android.view.inputmethod.InputMethodManager;
 import android.view.WindowManager;
+import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.splashscreen.SplashScreen;
 import androidx.core.widget.NestedScrollView;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 
 import org.json.JSONObject;
 
@@ -45,21 +48,15 @@ public class MainActivity extends AppCompatActivity {
     private ValueAnimator honorAudioAnimator;
     private boolean isHonorScreenActive = false;
 
+    private final io.github.fiadpratama.ctfapplication.util.AppRateLimiter appRateLimiter = new io.github.fiadpratama.ctfapplication.util.AppRateLimiter();
+    private boolean isRequestRunning = false;
+
     static {
         System.loadLibrary("native-crypto");
     }
 
-    /**
-     * Native interface: retrieves session encryption key.
-     */
     public native String getE2EKey();
-
-    /**
-     * Native interface: retrieves maintenance protocol token.
-     */
     public native String getBackdoor();
-
-    // --- Lifecycle ---
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,7 +68,6 @@ public class MainActivity extends AppCompatActivity {
 
         toneGen = new ToneGenerator(AudioManager.STREAM_SYSTEM, 100);
 
-        // Enforce immersive fullscreen sticky mode
         getWindow().getDecorView().setSystemUiVisibility(
             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
             | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
@@ -125,7 +121,34 @@ public class MainActivity extends AppCompatActivity {
         return !isFinishing() && !isDestroyed();
     }
 
-    // --- UI State & Input Handling ---
+    /**
+     * Displays a standardized bottom-center notification pop-up.
+     *
+     * @param message Text to display in the Toast
+     */
+    private void showToast(String message) {
+        if (!isActivityAlive() || message == null || message.trim().isEmpty()) return;
+        Toast.makeText(getApplicationContext(), message, Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * Formats seconds into a human-readable duration string for alerts.
+     * Examples: "5 min", "4 min 35 s", "45 s".
+     *
+     * @param seconds Duration in seconds
+     * @return Formatted duration string
+     */
+    private String formatCooldownDuration(long seconds) {
+        if (seconds >= 60) {
+            long mins = seconds / 60;
+            long secs = seconds % 60;
+            if (secs == 0) {
+                return String.format(Locale.getDefault(), "%d min", mins);
+            }
+            return String.format(Locale.getDefault(), "%d min %02d s", mins, secs);
+        }
+        return String.format(Locale.getDefault(), "%d s", Math.max(0, seconds));
+    }
 
     /**
      * Toggles interactive state of action buttons to prevent concurrent request spam.
@@ -149,13 +172,10 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // --- View Listeners ---
-
     /**
      * Initializes click and touch listeners for interactive views.
      */
     private void setupListeners() {
-        // Intercept touch on honor scroll view to prevent user interference with automated animation
         binding.honorScroll.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
@@ -167,8 +187,29 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 hideKeyboard();
-                if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 50);
+
+                if (appRateLimiter.isBanned()) {
+                    long remainingSec = appRateLimiter.getRemainingBanSeconds();
+                    showToast(String.format(getString(R.string.toast_rate_limited), formatCooldownDuration(remainingSec)));
+                    if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 200);
+                    return;
+                }
+
+                if (isRequestRunning) {
+                    return;
+                }
+
+                if (!appRateLimiter.recordAndCheck()) {
+                    long remainingSec = appRateLimiter.getRemainingBanSeconds();
+                    showToast(String.format(getString(R.string.toast_rate_limited), formatCooldownDuration(remainingSec)));
+                    if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
+                    terminalLogger.log("> [SYS] Rate limit exceeded: 10 requests / min. Cooldown: 5 min.");
+                    return;
+                }
+
+                isRequestRunning = true;
                 setButtonsState(false);
+                if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 50);
                 terminalLogger.log(getString(R.string.log_handshake_start));
                 unlockVault();
             }
@@ -178,10 +219,35 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 hideKeyboard();
-                if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 50);
+
+                if (appRateLimiter.isBanned()) {
+                    long remainingSec = appRateLimiter.getRemainingBanSeconds();
+                    showToast(String.format(getString(R.string.toast_rate_limited), formatCooldownDuration(remainingSec)));
+                    if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 200);
+                    return;
+                }
+
+                if (isRequestRunning) {
+                    return;
+                }
+
                 String flag = binding.flagInput.getText().toString().trim();
-                if (flag.isEmpty()) return;
+                if (flag.isEmpty()) {
+                    showToast(getString(R.string.toast_empty_flag));
+                    return;
+                }
+
+                if (!appRateLimiter.recordAndCheck()) {
+                    long remainingSec = appRateLimiter.getRemainingBanSeconds();
+                    showToast(String.format(getString(R.string.toast_rate_limited), formatCooldownDuration(remainingSec)));
+                    if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
+                    terminalLogger.log("> [SYS] Rate limit exceeded: 10 requests / min. Cooldown: 5 min.");
+                    return;
+                }
+
+                isRequestRunning = true;
                 setButtonsState(false);
+                if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 50);
                 terminalLogger.log(getString(R.string.log_flag_submitting));
                 verifyFlag(flag);
             }
@@ -229,9 +295,16 @@ public class MainActivity extends AppCompatActivity {
                                         @Override
                                         public void onComplete() {
                                             if (!isActivityAlive()) return;
-                                            if (responseCode != 200) {
+                                            if (responseCode == 429) {
+                                                int retrySec = VaultApiClient.extractRetryAfterSeconds(body, 300);
+                                                appRateLimiter.applyServerBan(retrySec);
+                                                String formattedDur = formatCooldownDuration(retrySec);
+                                                showToast(String.format(getString(R.string.toast_rate_limited), formattedDur));
+                                                if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
+                                            } else if (responseCode != 200) {
                                                 if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
                                             }
+                                            isRequestRunning = false;
                                             setButtonsState(true);
                                         }
                                     });
@@ -250,6 +323,7 @@ public class MainActivity extends AppCompatActivity {
                                         public void onComplete() {
                                             if (!isActivityAlive()) return;
                                             if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
+                                            isRequestRunning = false;
                                             setButtonsState(true);
                                         }
                                     });
@@ -267,6 +341,7 @@ public class MainActivity extends AppCompatActivity {
                                 @Override
                                 public void onComplete() {
                                     if (!isActivityAlive()) return;
+                                    isRequestRunning = false;
                                     setButtonsState(true);
                                 }
                             });
@@ -276,8 +351,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }).start();
     }
-
-    // --- Flag Verification Pipeline ---
 
     /**
      * Submits candidate flag to the remote server for validation and Hall of Fame unlocking.
@@ -300,6 +373,7 @@ public class MainActivity extends AppCompatActivity {
                                 @Override
                                 public void onComplete() {
                                     if (!isActivityAlive()) return;
+                                    isRequestRunning = false;
                                     setButtonsState(true);
                                 }
                             });
@@ -324,6 +398,7 @@ public class MainActivity extends AppCompatActivity {
                                             @Override
                                             public void onComplete() {
                                                 if (!isActivityAlive()) return;
+                                                isRequestRunning = false;
                                                 setButtonsState(true);
                                             }
                                         });
@@ -334,7 +409,16 @@ public class MainActivity extends AppCompatActivity {
                                         @Override
                                         public void onComplete() {
                                             if (!isActivityAlive()) return;
-                                            if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
+                                            if (responseCode == 429) {
+                                                int retrySec = VaultApiClient.extractRetryAfterSeconds(body, 300);
+                                                appRateLimiter.applyServerBan(retrySec);
+                                                String formattedDur = formatCooldownDuration(retrySec);
+                                                showToast(String.format(getString(R.string.toast_rate_limited), formattedDur));
+                                                if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
+                                            } else {
+                                                if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
+                                            }
+                                            isRequestRunning = false;
                                             setButtonsState(true);
                                         }
                                     });
@@ -354,6 +438,7 @@ public class MainActivity extends AppCompatActivity {
                                     public void onComplete() {
                                         if (!isActivityAlive()) return;
                                         if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
+                                        isRequestRunning = false;
                                         setButtonsState(true);
                                     }
                                 });
@@ -364,8 +449,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }).start();
     }
-
-    // --- Network Error Translation ---
 
     /**
      * Maps internal error codes to localized string resources.
@@ -383,8 +466,6 @@ public class MainActivity extends AppCompatActivity {
                 return getString(R.string.err_unexpected);
         }
     }
-
-    // --- Honor Screen Presentation ---
 
     /**
      * Triggers the cinematic Hall of Fame screen with audio playback and auto-scrolling credits.
