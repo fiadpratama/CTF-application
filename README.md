@@ -4,55 +4,70 @@ English | [Bahasa Indonesia](README.id.md)
 
 ---
 
-A hands-on Android reverse engineering and network security challenge covering static analysis, dynamic instrumentation, and protocol interception.
-
-## Project Overview
-
-This CTF simulates a mobile application security assessment scenario, testing skills in static analysis, dynamic instrumentation, and network protocol interception. The application implements a server-side verification architecture where the flag is only released after a full exploit chain is completed correctly.
+A hands-on mobile security challenge simulating an Android application security assessment. Test your capabilities in reverse engineering, dynamic runtime inspection, cryptographic analysis, and network protocol manipulation.
 
 ## Architecture
 
-- **Client (Android):** Java with a native C++ (JNI) component (Android 8.0+ / API 26+, targeting API 34), hardened with timing obfuscation, secondary key encoding, and passive anti-hooking detection.
-- **Security Engine:** Native constants are obfuscated at compile-time to resist casual static string analysis.
-- **Backend (Serverless):** Node.js REST API deployed on the Vercel Edge Network. Enforces a minimum supported client version and rejects outdated builds.
-- **Cryptography:** AES-256-GCM end-to-end encryption for client-server payload transmission.
+- **Client (Android):** Java with a native C++ (JNI) engine (Android 8.0+ / API 26+, targeting API 34), hardened with compile-time symbol obfuscation, execution timing noise, and passive tracing detection.
+- **Backend (Serverless):** Modular Node.js REST API deployed on Vercel, backed by Upstash Redis for distributed state, atomic Lua verification pipelines, stateless JWT session tokens, and version gating.
+- **Cryptography:** AES-256-GCM payload encryption protecting client-server communication.
 
 ## Tools & Prerequisites
 
-Recommended tools for this challenge:
-
-- **Decompilation & Static Analysis:** JADX, Apktool, or Ghidra.
+- **Static Analysis:** JADX, Apktool, or Ghidra.
 - **Dynamic Instrumentation:** Frida or Objection.
-- **Traffic Interception & Proxying:** Burp Suite or OWASP ZAP. Note that modern Android does not trust user-installed CA certificates by default, so HTTPS interception requires additional setup.
+- **Traffic Interception:** Burp Suite or OWASP ZAP *(note: user-installed CA certificates require network security configuration or runtime bypass on modern Android)*.
 
 ## Challenge Specifications
 
-The objective is to extract a valid flag from the remote server. The assessment consists of three sequential stages.
+The objective is to compromise the verification pipeline and claim the flag from the remote server across three sequential phases.
 
 ### Phase 1: Cryptographic Extraction
 
-The Android client transmits an encrypted payload to the backend. You will need to identify what the client requires to complete this exchange successfully.
+The client transmits an encrypted envelope to the backend. Determine what the server expects to validate this initial handshake.
 
-*Note: Investigation of the compiled native layer (`libnative-crypto.so`) is required. Not everything you find there is what it appears to be.*
+<details>
+<summary>💡 Hints for Phase 1</summary>
+
+- **Orientation:** Look beneath the managed runtime. The application's true core speaks a lower-level tongue where boundaries blur.
+- **Method:** What is written directly on the binary's surface is not always what the engine executes. Runtime memory remembers what static eyes mistake.
+- **Evidence:** The gatekeeper does not simply open or shut; listen carefully to how it rejects you. An empty pocket produces a different echo than a forged key.
+</details>
 
 ### Phase 2: Protocol Manipulation
 
-Passing Phase 1 unlocks a server-side validation step involving a value you don't yet have.
+Passing the first gate grants access to a server-side evaluation requiring data not present in the default flow.
+
+<details>
+<summary>💡 Hints for Phase 2</summary>
+
+- **Orientation:** Passing the first trial is not just a doorway, but a message. Never discard the envelope that brought you through.
+- **Method:** The authority grants a signed seal alongside an unspoken condition. Inspect the metadata surrounding the grant—the answer bridges what is given and what is demanded.
+- **Evidence:** Time is not static, and the balance requires transformation. Solve the relationship before the authority's patience expires.
+</details>
 
 ### Phase 3: Final Verification
 
-Submit your extracted flag through the Android application to complete the assessment and unlock the Hall of Fame.
+Submit the claimed flag to complete the assessment and unlock the Hall of Fame.
+
+<details>
+<summary>💡 Hints for Phase 3</summary>
+
+- **Orientation:** The prize cannot be shared or hoarded; it recognizes only the session that earned it.
+- **Method:** You may present your tribute through the standard interface, or speak directly to the final endpoint.
+- **Evidence:** The gatekeeper only respects travelers carrying modern credentials. Ensure your transmission proclaims the current era.
+</details>
 
 ## Getting Started
 
-1. Download the latest `.apk` from the repository releases. Outdated builds may be rejected by the server.
-2. Install it on an Android emulator or physical test device.
-3. Configure your proxy environment if using Burp Suite/ZAP (see the note above on HTTPS interception).
-4. Begin your analysis.
+1. Download the latest `.apk` from [Releases](../../releases). Outdated builds are rejected with `HTTP 426`.
+2. Install on an emulator or physical test device (Android 8.0+).
+3. Set up your interception proxy and begin reverse engineering.
+
+For detailed release notes and migration history, refer to [CHANGELOG.md](CHANGELOG.md).
 
 ### Building from Source (Optional)
 
-If you are hosting or customizing the challenge:
 ```bash
 # 1. Setup local native secrets configuration
 cp android_client/app/src/main/cpp/native-secrets.properties.example android_client/app/src/main/cpp/native-secrets.properties
@@ -62,33 +77,26 @@ cd android_client
 ./gradlew assembleRelease      # Linux / macOS
 gradlew.bat assembleRelease    # Windows
 ```
-The native key generator task executes automatically before compilation. The generated APK will be available in `android_client/app/build/outputs/apk/release/app-release.apk`.
+The output APK will be placed in `android_client/app/build/outputs/apk/release/app-release.apk`.
 
-## Privacy & Data Handling
+## Privacy & Abuse Prevention
 
-This project is a self-contained security challenge and does not collect personal information beyond the IP address handling described below. An anonymous counter of completed solves is also stored; it contains no personal data.
+This challenge does not collect personal data.
+- **Rate Limiting:** Client IP addresses are stored ephemerally in Redis with automatic expiry (up to 30 minutes for abusive clients) strictly for brute-force mitigation.
+- **Solve Counter:** An anonymous global solve counter tracks completed challenges without storing user identifiers.
+- **Traffic:** Only challenge payloads are evaluated. Do not transmit personal credentials.
 
-- **IP Addresses:** The backend temporarily processes client IP addresses exclusively for rate limiting and abuse prevention. Records are stored in an ephemeral Redis cache and expire automatically (up to 30 minutes for rate-limited clients).
-- **Network Traffic:** All communication is transmitted over HTTPS. Only challenge tokens and flags are evaluated; participants should never submit sensitive personal credentials.
-- **Infrastructure Logs:** The API is hosted on the Vercel Edge Network, which may retain standard HTTP transit logs per Vercel's standard infrastructure policies.
+## Release Verification
 
-## Verifying Release Authenticity
+Official release APKs are signed with a dedicated developer keystore:
 
-Official release APKs (v1.4.0 and later) are signed with a dedicated developer signing key. You can independently verify the authenticity and integrity of the binary before installation:
-
-### 1. Signing Certificate Fingerprint (Authenticity)
-Verify that the APK was built and signed by the repository author:
-```
-SHA-256: 11919c358daf9c9f56da77617284fb99cc402fc789242fe8c75c674a3c551a62
-```
-To verify using Android SDK build-tools:
-```bash
-apksigner verify --print-certs app-release.apk
-```
-
-### 2. File Checksum (Integrity)
-To ensure the downloaded APK was not corrupted in transit, match its SHA-256 hash against the asset digest published on the [GitHub Releases](../../releases) page.
+- **Signer SHA-256:** `11919c358daf9c9f56da77617284fb99cc402fc789242fe8c75c674a3c551a62`
+- Verify using `apksigner`:
+  ```bash
+  apksigner verify --print-certs app-release.apk
+  ```
+- Compare the file SHA-256 digest against the checksum published in the corresponding [GitHub Release](../../releases).
 
 ---
 
-*Disclaimer: This repository is intended strictly for educational purposes, security research, and ethical hacking practice. Unauthorized automated attacks, including Denial of Service (DoS) or brute-forcing against the deployed backend infrastructure, are strictly prohibited.*
+*Disclaimer: This repository is intended strictly for educational security research and ethical hacking practice. Automated DoS or brute-force attacks against the live infrastructure are strictly prohibited.*

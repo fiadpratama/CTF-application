@@ -2,39 +2,43 @@
 
 ## About This Project
 
-CTF Application is an educational mobile security challenge. It is designed to be reverse-engineered and analyzed as part of the intended learning experience — static analysis, dynamic instrumentation, and network protocol interception are the core mechanics of the challenge itself, not vulnerabilities to be reported.
+CTF Application is an educational mobile security challenge designed to simulate real-world Android application assessments. Reverse engineering, static code inspection, dynamic binary instrumentation, and network protocol interception are the intended mechanics of this challenge, not vulnerabilities to report.
 
 ## Secret Management
 
-This repository is open source, including the native C++ layer and backend server code. Cryptographic secrets (the E2EE key, backdoor authorization token, session signing key, and stage-2 multiplier) are kept out of version control; see Incident History for earlier exposure and remediation. They are:
+This repository is fully open source. However, production cryptographic secrets are strictly isolated from version control:
 
-- Generated locally from a git-ignored configuration file (`native-secrets.properties`) for the Android client, executed automatically during the Gradle pre-build lifecycle.
-- Injected via environment variables for the backend server (`E2EE_KEY`, `BACKDOOR_CODE`, `SECRET_MULTIPLIER`, `JWT_SECRET`).
+- **Client Secrets:** Generated locally from a git-ignored configuration file (`native-secrets.properties`) and embedded into C++ headers automatically during the Gradle pre-build lifecycle.
+- **Backend Secrets:** Injected via server environment variables for payload decryption, challenge verification, and session signing.
 
-Reading the source will not reveal these values, but it does reveal how the challenge works. Participants who prefer to discover the mechanics themselves may want to avoid reading the backend and native sources before attempting the challenge.
+Reading the open-source code will not reveal live keys or credentials, but it outlines the challenge architecture. Participants seeking an authentic assessment experience are encouraged to approach the application as a black-box target.
 
-## Architecture Notes
+## Architecture & State Integrity
 
-Stage 1 session state is carried in signed, stateless JWTs. To ensure fault tolerance against network drops while preventing multi-flag abuse, Stage 2 validation is idempotent: each session token binds to a single unique flag, returning the same flag on retries without re-issuance. State that must be shared across serverless function instances — active flag records, session replay caches, and rate-limiting counters — is stored in Upstash Redis, provisioned through the Vercel Marketplace. Flags have a short lifetime (15-minute validity) and transition to a 5-minute grace window upon initial verification, allowing idempotent resubmissions without inflating solve metrics.
+- **Stateless Sessions:** Initial verification issues signed HS256 JWT tokens carrying challenge claims and unique nonces (`jti`).
+- **Distributed State:** Ephemeral challenge states, atomic rate-limiting counters, and active flag registries are managed via Upstash Redis across serverless instances.
+- **Idempotency & Abuse Prevention:** Stage 2 validation binds each session to a single unique flag via atomic Lua scripts, allowing retry resilience without multi-flag issuance. Flags have a strict 15-minute expiration window.
+- **Version Gating:** The server enforces a minimum supported client version (`MIN_VERSION_CODE = 8`) to ensure participants interact with hardened binary builds.
 
 ## Incident History
 
-This project has undergone credential rotation following past exposure of secrets in earlier commits (native encryption key, backdoor code, signing keystore, stage-2 multiplier). All affected values have been rotated and are no longer valid. See the release notes for version-specific details.
+This project previously underwent credential and keystore rotations to isolate legacy development secrets from git history. All pre-v2.0.0 credentials, signing keystores, and challenge tokens have been permanently retired. For detailed version milestones, see [CHANGELOG.md](CHANGELOG.md).
 
 ## Reporting a Vulnerability
 
-Please report genuine security issues that fall outside the intended challenge mechanics, for example:
+Please report genuine infrastructure vulnerabilities that fall outside the intended challenge scope, such as:
 
-- A way to access, modify, or invalidate other participants' sessions or flags.
-- A weakness in the backend's session handling, rate limiting, or storage that allows abuse of the infrastructure.
-- Exposure of the session signing key or other server-only secrets.
+- Flaws allowing unauthorized access, modification, or invalidation of other participants' sessions or flags.
+- Bypass of the serverless rate limiter or Denial of Service (DoS) vectors against the Redis/Edge infrastructure.
+- Inadvertent exposure of production server environment variables or signing private keys.
 
-Extracting secrets from the client, intercepting traffic, and manipulating client-supplied values are part of the intended challenge and are not vulnerabilities.
+*Note: Reverse engineering the Android APK, bypassing client-side detection, decrypting client payloads, and manipulating client-controlled parameters are intended challenge objectives, not vulnerabilities.*
 
-To report an issue, open a private security advisory via GitHub's "Report a vulnerability" feature on this repository, or contact the maintainer through their GitHub profile. Please do not open a public issue for security-sensitive findings.
-
-This is a personal project maintained on a best-effort basis, so response times may vary. Automated or high-volume testing against the live backend is not permitted.
+To report a vulnerability, please submit a private advisory through GitHub's **Security Advisories** feature on this repository.
 
 ## Supported Versions
 
-Only the latest release is actively maintained. The backend enforces a minimum client version and rejects older builds with HTTP 426; this minimum may be raised in the future when changes require it. Releases that predate credential rotations will not function against the production backend.
+| Version | Status | Server Compatibility |
+| :--- | :--- | :--- |
+| **v2.0.0+** (`versionCode >= 8`) | **Supported** | Active |
+| **< v2.0.0** (`versionCode < 8`) | **Deprecated** | Rejected (`HTTP 426 Upgrade Required`) |

@@ -9,7 +9,7 @@ const BACKDOOR_CODE = process.env.BACKDOOR_CODE;
 const MULTIPLIER_STRING = process.env.SECRET_MULTIPLIER || '';
 const SECRET_MULTIPLIER = Number(MULTIPLIER_STRING);
 const JWT_SECRET = process.env.JWT_SECRET;
-const MIN_VERSION_CODE = 5;
+const MIN_VERSION_CODE = 8;
 
 // Startup integrity validation
 const configErrors = [];
