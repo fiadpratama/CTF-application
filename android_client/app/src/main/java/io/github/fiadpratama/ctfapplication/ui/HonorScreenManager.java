@@ -18,7 +18,8 @@ import io.github.fiadpratama.ctfapplication.databinding.ActivityMainBinding;
  * Cinematic Hall of Fame Presentation Controller
  *
  * Coordinates the full-screen debriefing sequence, background music playback,
- * smooth auto-scrolling credits, audio fade-out, and return transitions.
+ * smooth auto-scrolling credits, audio fade-out, 15-second skip button reveal,
+ * and return transitions.
  */
 public class HonorScreenManager {
 
@@ -32,10 +33,13 @@ public class HonorScreenManager {
     private static final long SCROLL_START_DELAY_MS = 2000L;
     private static final long SCROLL_DURATION_MS = 82000L;
     private static final long TRANSITION_TOTAL_MS = 87000L;
-    private static final long FADE_DURATION_MS = 5000L;
+    private static final long FADE_STANDARD_MS = 5000L;
+    private static final long FADE_SKIP_MS = 1000L;
+    private static final long SKIP_APPEAR_DELAY_MS = 15000L;
 
     private final Activity activity;
     private final ActivityMainBinding binding;
+    private final Runnable onSkipAction;
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     private MediaPlayer mediaPlayer;
@@ -43,9 +47,18 @@ public class HonorScreenManager {
     private ValueAnimator audioFadeAnimator;
     private boolean isActive = false;
 
+    private Runnable scrollRunnable;
+    private Runnable transitionRunnable;
+    private Runnable skipRevealRunnable;
+
     public HonorScreenManager(Activity activity, ActivityMainBinding binding) {
+        this(activity, binding, null);
+    }
+
+    public HonorScreenManager(Activity activity, ActivityMainBinding binding, Runnable onSkipAction) {
         this.activity = activity;
         this.binding = binding;
+        this.onSkipAction = onSkipAction;
     }
 
     /**
@@ -69,15 +82,36 @@ public class HonorScreenManager {
 
         isActive = true;
         activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            activity.getWindow().getAttributes().layoutInDisplayCutoutMode =
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+        }
+        applyImmersiveMode();
 
         binding.mainLayout.setVisibility(View.GONE);
         binding.honorLayout.setVisibility(View.VISIBLE);
         binding.honorText.setText(debriefMessage);
 
         binding.honorLayout.setAlpha(0.0f);
-        binding.honorLayout.animate().alpha(1.0f).setDuration(FADE_DURATION_MS).start();
+        binding.honorLayout.animate().alpha(1.0f).setDuration(FADE_STANDARD_MS).start();
 
-        handler.postDelayed(new Runnable() {
+        binding.honorSkipButton.setVisibility(View.GONE);
+        binding.honorSkipButton.setAlpha(0.0f);
+        binding.honorSkipButton.setEnabled(true);
+        binding.honorSkipButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!isActive) return;
+                if (onSkipAction != null) {
+                    onSkipAction.run();
+                }
+                binding.honorSkipButton.setEnabled(false);
+                cancelTimeline();
+                fadeAudioAndEnd(FADE_SKIP_MS, onFinished);
+            }
+        });
+
+        scrollRunnable = new Runnable() {
             @Override
             public void run() {
                 if (!isAlive()) return;
@@ -93,15 +127,28 @@ public class HonorScreenManager {
                     }
                 }
             }
-        }, SCROLL_START_DELAY_MS);
+        };
+        handler.postDelayed(scrollRunnable, SCROLL_START_DELAY_MS);
 
-        handler.postDelayed(new Runnable() {
+        skipRevealRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (!isAlive() || !isActive) return;
+                binding.honorSkipButton.setVisibility(View.VISIBLE);
+                binding.honorSkipButton.setAlpha(0.0f);
+                binding.honorSkipButton.animate().alpha(1.0f).setDuration(600).start();
+            }
+        };
+        handler.postDelayed(skipRevealRunnable, SKIP_APPEAR_DELAY_MS);
+
+        transitionRunnable = new Runnable() {
             @Override
             public void run() {
                 if (!isAlive()) return;
-                fadeAudioAndEnd(onFinished);
+                fadeAudioAndEnd(FADE_STANDARD_MS, onFinished);
             }
-        }, TRANSITION_TOTAL_MS);
+        };
+        handler.postDelayed(transitionRunnable, TRANSITION_TOTAL_MS);
 
         try {
             mediaPlayer = MediaPlayer.create(activity, R.raw.bgm);
@@ -115,12 +162,37 @@ public class HonorScreenManager {
     }
 
     /**
-     * Fades audio volume down over 5s and smoothly cross-fades back to the main layout.
+     * Cancels active timeline runnables and auto-scrolling animation.
      */
-    private void fadeAudioAndEnd(final OnCinematicFinishedListener onFinished) {
+    private void cancelTimeline() {
+        if (scrollRunnable != null) {
+            handler.removeCallbacks(scrollRunnable);
+            scrollRunnable = null;
+        }
+        if (transitionRunnable != null) {
+            handler.removeCallbacks(transitionRunnable);
+            transitionRunnable = null;
+        }
+        if (skipRevealRunnable != null) {
+            handler.removeCallbacks(skipRevealRunnable);
+            skipRevealRunnable = null;
+        }
+        if (scrollAnimator != null) {
+            scrollAnimator.cancel();
+            scrollAnimator = null;
+        }
+    }
+
+    /**
+     * Fades audio volume down and smoothly cross-fades back to the main layout.
+     *
+     * @param fadeDurationMs Duration of fade-out animation in milliseconds
+     * @param onFinished Callback invoked when layout restoration completes
+     */
+    private void fadeAudioAndEnd(long fadeDurationMs, final OnCinematicFinishedListener onFinished) {
         if (mediaPlayer != null) {
             audioFadeAnimator = ValueAnimator.ofFloat(1.0f, 0.0f);
-            audioFadeAnimator.setDuration(FADE_DURATION_MS);
+            audioFadeAnimator.setDuration(fadeDurationMs);
             audioFadeAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
                 @Override
                 public void onAnimationUpdate(ValueAnimator animation) {
@@ -133,7 +205,9 @@ public class HonorScreenManager {
             audioFadeAnimator.start();
         }
 
-        binding.honorLayout.animate().alpha(0.0f).setDuration(FADE_DURATION_MS).withEndAction(new Runnable() {
+        binding.honorSkipButton.animate().alpha(0.0f).setDuration(fadeDurationMs).start();
+
+        binding.honorLayout.animate().alpha(0.0f).setDuration(fadeDurationMs).withEndAction(new Runnable() {
             @Override
             public void run() {
                 if (!isAlive()) return;
@@ -141,10 +215,16 @@ public class HonorScreenManager {
                 activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                 releaseMediaPlayer();
 
+                binding.honorSkipButton.setVisibility(View.GONE);
                 binding.honorLayout.setVisibility(View.GONE);
                 binding.honorLayout.setAlpha(1.0f);
                 binding.mainLayout.setVisibility(View.VISIBLE);
                 binding.flagInput.setText("");
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                    activity.getWindow().getAttributes().layoutInDisplayCutoutMode =
+                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT;
+                }
+                applyImmersiveMode();
 
                 if (onFinished != null) {
                     onFinished.onFinished();
@@ -160,25 +240,44 @@ public class HonorScreenManager {
     }
 
     public void onResume() {
-        if (isActive && mediaPlayer != null && !mediaPlayer.isPlaying()) {
-            mediaPlayer.start();
+        if (isActive) {
+            applyImmersiveMode();
+            if (mediaPlayer != null && !mediaPlayer.isPlaying()) {
+                mediaPlayer.start();
+            }
         }
+    }
+
+    /**
+     * Enforces sticky immersive full-screen display hiding system status and navigation bars.
+     */
+    private void applyImmersiveMode() {
+        if (!isAlive()) return;
+        activity.getWindow().getDecorView().setSystemUiVisibility(
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+            | View.SYSTEM_UI_FLAG_FULLSCREEN);
     }
 
     public void onDestroy() {
         isActive = false;
         if (activity != null && !activity.isDestroyed()) {
             activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                activity.getWindow().getAttributes().layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT;
+            }
         }
-        if (scrollAnimator != null) {
-            scrollAnimator.cancel();
-            scrollAnimator = null;
-        }
+        cancelTimeline();
         if (audioFadeAnimator != null) {
             audioFadeAnimator.cancel();
             audioFadeAnimator = null;
         }
         if (binding != null) {
+            binding.honorSkipButton.animate().cancel();
             binding.honorLayout.animate().cancel();
         }
         releaseMediaPlayer();

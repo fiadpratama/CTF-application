@@ -3,14 +3,20 @@ package io.github.fiadpratama.ctfapplication;
 import android.content.Context;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
 import androidx.core.splashscreen.SplashScreen;
+import androidx.core.view.OnApplyWindowInsetsListener;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import java.nio.charset.StandardCharsets;
 import org.json.JSONObject;
@@ -58,16 +64,26 @@ public class MainActivity extends AppCompatActivity {
 
         toneGen = new ToneGenerator(AudioManager.STREAM_SYSTEM, 100);
 
-        getWindow().getDecorView().setSystemUiVisibility(
-            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-            | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-            | View.SYSTEM_UI_FLAG_FULLSCREEN);
+        applyImmersiveMode();
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.mainLayout, new OnApplyWindowInsetsListener() {
+            @Override
+            public WindowInsetsCompat onApplyWindowInsets(View v, WindowInsetsCompat insets) {
+                Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+                int basePadding = (int) (18 * getResources().getDisplayMetrics().density);
+                int topPadding = Math.max(systemBars.top + (int) (24 * getResources().getDisplayMetrics().density), (int) (52 * getResources().getDisplayMetrics().density));
+                v.setPadding(basePadding, topPadding, basePadding, basePadding);
+                return insets;
+            }
+        });
 
         terminalLogger = new TerminalLogger(binding.terminalLogText, binding.terminalScrollView, handler);
-        honorScreenManager = new HonorScreenManager(this, binding);
+        honorScreenManager = new HonorScreenManager(this, binding, new Runnable() {
+            @Override
+            public void run() {
+                playButtonTone();
+            }
+        });
 
         setupListeners();
         initTerminalDiagnostics();
@@ -97,9 +113,32 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        applyImmersiveMode();
         if (honorScreenManager != null) {
             honorScreenManager.onResume();
         }
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            applyImmersiveMode();
+        }
+    }
+
+    /**
+     * Enforces sticky immersive full-screen display hiding system status and navigation bars.
+     */
+    public void applyImmersiveMode() {
+        if (!isActivityAlive()) return;
+        getWindow().getDecorView().setSystemUiVisibility(
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+            | View.SYSTEM_UI_FLAG_FULLSCREEN);
     }
 
     /**
@@ -139,14 +178,26 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
+     * Emits standard tactile beep tone on interactive button activations.
+     */
+    private void playButtonTone() {
+        if (toneGen != null) {
+            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 50);
+        }
+    }
+
+    /**
      * Dismisses the virtual software keyboard if currently active.
      */
     private void hideKeyboard() {
         View view = this.getCurrentFocus();
         if (view != null) {
             InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-            imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+            if (imm != null) {
+                imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+            }
         }
+        applyImmersiveMode();
     }
 
     /**
@@ -186,7 +237,7 @@ public class MainActivity extends AppCompatActivity {
 
                 isRequestRunning = true;
                 setButtonsState(false);
-                if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 50);
+                playButtonTone();
                 terminalLogger.log(getString(R.string.log_handshake_start));
                 unlockVault();
             }
@@ -224,7 +275,7 @@ public class MainActivity extends AppCompatActivity {
 
                 isRequestRunning = true;
                 setButtonsState(false);
-                if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 50);
+                playButtonTone();
                 terminalLogger.log(getString(R.string.log_flag_submitting));
                 verifyFlag(flag);
             }

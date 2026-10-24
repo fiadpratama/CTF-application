@@ -2,16 +2,18 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/terminal_bg"
-    android:fitsSystemWindows="true"> 
+    android:background="@color/terminal_bg"> 
 
+    <!-- Section: Primary Operations Workspace (Terminal diagnostic console & cryptographic controls) -->
     <LinearLayout
         android:id="@+id/mainLayout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:padding="18dp"
-        android:paddingTop="80dp">
+        android:paddingStart="18dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="18dp"
+        android:paddingTop="48dp">
 
         <TextView
             android:id="@+id/mainTitleText"
@@ -99,21 +101,21 @@
 
     </LinearLayout>
 
-    <LinearLayout
+    <!-- Section: Cinematic Hall of Fame (Full-screen debriefing sequence & scrolling credits) -->
+    <FrameLayout
         android:id="@+id/honorLayout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:gravity="center"
         android:background="@color/honor_bg"
-        android:padding="12dp"
-        android:paddingTop="24dp"
+        android:fitsSystemWindows="false"
         android:visibility="gone">
 
         <androidx.core.widget.NestedScrollView
             android:id="@+id/honorScroll"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:paddingStart="28dp"
+            android:paddingEnd="28dp"
             android:scrollbars="none">
 
             <LinearLayout
@@ -121,8 +123,8 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:gravity="center"
-                android:paddingTop="240dp"
-                android:paddingBottom="240dp">
+                android:paddingTop="220dp"
+                android:paddingBottom="220dp">
 
                 <TextView
                     android:id="@+id/honorTitleText"
@@ -140,14 +142,55 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textColor="@color/honor_text"
-                    android:textSize="16sp"
+                    android:textSize="14sp"
                     android:fontFamily="serif"
                     android:gravity="center"
-                    android:paddingTop="18dp"
-                    android:lineSpacingMultiplier="1.5" />
+                    android:paddingTop="36dp"
+                    android:lineSpacingMultiplier="1.45" />
 
             </LinearLayout>
         </androidx.core.widget.NestedScrollView>
-    </LinearLayout>
+
+        <!-- Edge Gradient Overlays: Casts cinematic fade over scrolling text; touch events pass through -->
+        <View
+            android:id="@+id/honorTopFade"
+            android:layout_width="match_parent"
+            android:layout_height="115dp"
+            android:layout_gravity="top"
+            android:background="@drawable/bg_honor_fade_top"
+            android:clickable="false"
+            android:focusable="false" />
+
+        <View
+            android:id="@+id/honorBottomFade"
+            android:layout_width="match_parent"
+            android:layout_height="24dp"
+            android:layout_gravity="bottom"
+            android:background="@drawable/bg_honor_fade_bottom"
+            android:clickable="false"
+            android:focusable="false" />
+
+        <!-- Interactive Skip Control: Positioned atop gradient layer for unobstructed touch response -->
+        <TextView
+            android:id="@+id/honorSkipButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|end"
+            android:layout_marginTop="16dp"
+            android:layout_marginEnd="16dp"
+            android:paddingStart="12dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="8dp"
+            android:text="@string/btn_skip"
+            android:textColor="@color/honor_text"
+            android:textSize="13sp"
+            android:fontFamily="monospace"
+            android:textStyle="bold"
+            android:visibility="gone"
+            android:clickable="true"
+            android:focusable="true" />
+
+    </FrameLayout>
 
 </FrameLayout>
