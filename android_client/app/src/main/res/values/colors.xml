@@ -1,22 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Brand & Terminal Theme Tokens -->
     <color name="terminal_bg">#0a0a0a</color>
     <color name="terminal_green">#00FF41</color>
     <color name="terminal_green_dim">#008F11</color>
-
-    <!-- Buttons & Interactive Controls -->
-    <color name="button_text_dark">#0a0a0a</color>
-
-    <!-- Hall of Fame Cinematic Presentation -->
-    <color name="honor_bg">#050505</color>
     <color name="honor_gold">#FFD700</color>
+    <color name="honor_bg">#050505</color>
     <color name="honor_text">#E0E0E0</color>
-
-    <!-- System Status & Diagnostics -->
     <color name="error_red">#FF3B3B</color>
-
-    <!-- Adaptive Launcher Icon -->
-    <color name="ic_launcher_background">#0a0a0a</color>
-    <color name="ic_launcher_accent">#00FF41</color>
+    <color name="button_text_dark">#0a0a0a</color>
 </resources>

@@ -1,39 +1,36 @@
 package io.github.fiadpratama.ctfapplication;
 
+import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.media.AudioManager;
+import android.media.MediaPlayer;
 import android.media.ToneGenerator;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.WindowManager;
+import android.view.animation.LinearInterpolator;
 import android.view.inputmethod.InputMethodManager;
+import android.view.WindowManager;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
 import androidx.core.splashscreen.SplashScreen;
-import androidx.core.view.OnApplyWindowInsetsListener;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
+import androidx.core.widget.NestedScrollView;
 
 import java.nio.charset.StandardCharsets;
+
 import org.json.JSONObject;
 
 import io.github.fiadpratama.ctfapplication.crypto.CryptoHelper;
 import io.github.fiadpratama.ctfapplication.databinding.ActivityMainBinding;
 import io.github.fiadpratama.ctfapplication.network.VaultApiClient;
-import io.github.fiadpratama.ctfapplication.ui.HonorScreenManager;
 import io.github.fiadpratama.ctfapplication.ui.TerminalLogger;
-import io.github.fiadpratama.ctfapplication.ui.ToastHelper;
-import io.github.fiadpratama.ctfapplication.util.AppRateLimiter;
 import io.github.fiadpratama.ctfapplication.util.SecurityChecks;
 
 /**
  * Main Activity
  *
- * Core coordinator for the Android CTF client application. Manages UI event dispatching,
+ * Core coordinator for the Android CTF client application. Manages immersive UI presentation,
  * terminal console streaming, native cryptographic handshakes, and flag verification workflows.
  */
 public class MainActivity extends AppCompatActivity {
@@ -42,17 +39,23 @@ public class MainActivity extends AppCompatActivity {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private ToneGenerator toneGen;
     private TerminalLogger terminalLogger;
-    private HonorScreenManager honorScreenManager;
-    private final ToastHelper toastHelper = new ToastHelper();
-    private final AppRateLimiter appRateLimiter = new AppRateLimiter();
-    private boolean isRequestRunning = false;
+    private MediaPlayer mediaPlayer;
 
     static {
         System.loadLibrary("native-crypto");
     }
 
+    /**
+     * Native call to recover the end-to-end symmetric encryption key.
+     */
     public native String getE2EKey();
+
+    /**
+     * Native call to recover the authorized handshake backdoor credential.
+     */
     public native String getBackdoor();
+
+    // --- Lifecycle ---
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,74 +67,7 @@ public class MainActivity extends AppCompatActivity {
 
         toneGen = new ToneGenerator(AudioManager.STREAM_SYSTEM, 100);
 
-        applyImmersiveMode();
-
-        ViewCompat.setOnApplyWindowInsetsListener(binding.mainLayout, new OnApplyWindowInsetsListener() {
-            @Override
-            public WindowInsetsCompat onApplyWindowInsets(View v, WindowInsetsCompat insets) {
-                Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
-                int basePadding = (int) (18 * getResources().getDisplayMetrics().density);
-                int topPadding = Math.max(systemBars.top + (int) (24 * getResources().getDisplayMetrics().density), (int) (52 * getResources().getDisplayMetrics().density));
-                v.setPadding(basePadding, topPadding, basePadding, basePadding);
-                return insets;
-            }
-        });
-
-        terminalLogger = new TerminalLogger(binding.terminalLogText, binding.terminalScrollView, handler);
-        honorScreenManager = new HonorScreenManager(this, binding, new Runnable() {
-            @Override
-            public void run() {
-                playButtonTone();
-            }
-        });
-
-        setupListeners();
-        initTerminalDiagnostics();
-    }
-
-    /**
-     * Executes initial environment security diagnostics once during application startup.
-     */
-    private void initTerminalDiagnostics() {
-        terminalLogger.log(getString(R.string.log_sys_init));
-        if (SecurityChecks.isCompromised()) {
-            terminalLogger.log(getString(R.string.log_env_warning));
-        } else {
-            terminalLogger.log(getString(R.string.log_env_nominal));
-        }
-        terminalLogger.log(getString(R.string.log_sys_idle));
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        if (honorScreenManager != null) {
-            honorScreenManager.onPause();
-        }
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        applyImmersiveMode();
-        if (honorScreenManager != null) {
-            honorScreenManager.onResume();
-        }
-    }
-
-    @Override
-    public void onWindowFocusChanged(boolean hasFocus) {
-        super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) {
-            applyImmersiveMode();
-        }
-    }
-
-    /**
-     * Enforces sticky immersive full-screen display hiding system status and navigation bars.
-     */
-    public void applyImmersiveMode() {
-        if (!isActivityAlive()) return;
+        // Enforce immersive fullscreen sticky mode
         getWindow().getDecorView().setSystemUiVisibility(
             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
             | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
@@ -139,32 +75,15 @@ public class MainActivity extends AppCompatActivity {
             | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
             | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
             | View.SYSTEM_UI_FLAG_FULLSCREEN);
+
+        terminalLogger = new TerminalLogger(binding.terminalLogText, binding.terminalScrollView, handler);
+
+        setupListeners();
+
+        terminalLogger.log(getString(R.string.log_system_idle));
     }
 
-    /**
-     * Evaluates whether the Activity is still active and safe for UI updates.
-     *
-     * @return true if Activity is neither finishing nor destroyed
-     */
-    private boolean isActivityAlive() {
-        return !isFinishing() && !isDestroyed();
-    }
-
-    /**
-     * Displays a debounced toast alert and plays an auditory tone if the notification is shown.
-     *
-     * @param message Text to display
-     * @param toneType ToneGenerator tone identifier (0 for no tone)
-     * @param toneDuration Duration of tone playback in ms
-     */
-    private void showThrottledAlert(String message, int toneType, int toneDuration) {
-        if (!isActivityAlive()) return;
-        if (toastHelper.showThrottled(this, message)) {
-            if (toneGen != null && toneType != 0) {
-                toneGen.startTone(toneType, toneDuration);
-            }
-        }
-    }
+    // --- UI State & Input Handling ---
 
     /**
      * Toggles interactive state of action buttons to prevent concurrent request spam.
@@ -172,18 +91,8 @@ public class MainActivity extends AppCompatActivity {
      * @param isEnabled true to enable user interaction; false to lock
      */
     private void setButtonsState(boolean isEnabled) {
-        if (!isActivityAlive()) return;
         binding.unlockButton.setEnabled(isEnabled);
         binding.submitFlagBtn.setEnabled(isEnabled);
-    }
-
-    /**
-     * Emits standard tactile beep tone on interactive button activations.
-     */
-    private void playButtonTone() {
-        if (toneGen != null) {
-            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 50);
-        }
     }
 
     /**
@@ -193,17 +102,17 @@ public class MainActivity extends AppCompatActivity {
         View view = this.getCurrentFocus();
         if (view != null) {
             InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-            if (imm != null) {
-                imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
-            }
+            imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
         }
-        applyImmersiveMode();
     }
+
+    // --- View Listeners ---
 
     /**
      * Initializes click and touch listeners for interactive views.
      */
     private void setupListeners() {
+        // Intercept touch on honor scroll view to prevent user interference with automated animation
         binding.honorScroll.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
@@ -215,30 +124,9 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 hideKeyboard();
-
-                if (appRateLimiter.isBanned()) {
-                    long remainingSec = appRateLimiter.getRemainingBanSeconds();
-                    String dur = ToastHelper.formatDuration(remainingSec);
-                    showThrottledAlert(String.format(getString(R.string.toast_rate_limited), dur), ToneGenerator.TONE_CDMA_ABBR_ALERT, 200);
-                    return;
-                }
-
-                if (isRequestRunning) {
-                    return;
-                }
-
-                if (!appRateLimiter.recordAndCheck()) {
-                    long remainingSec = appRateLimiter.getRemainingBanSeconds();
-                    String dur = ToastHelper.formatDuration(remainingSec);
-                    showThrottledAlert(String.format(getString(R.string.toast_rate_limited), dur), ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
-                    terminalLogger.log("> [SYS] Rate limit exceeded: 10 requests / min. Cooldown: 5 min.");
-                    return;
-                }
-
-                isRequestRunning = true;
+                if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 50);
                 setButtonsState(false);
-                playButtonTone();
-                terminalLogger.log(getString(R.string.log_handshake_start));
+                terminalLogger.log(getString(R.string.log_initiating_connection));
                 unlockVault();
             }
         });
@@ -247,40 +135,17 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 hideKeyboard();
-
-                if (appRateLimiter.isBanned()) {
-                    long remainingSec = appRateLimiter.getRemainingBanSeconds();
-                    String dur = ToastHelper.formatDuration(remainingSec);
-                    showThrottledAlert(String.format(getString(R.string.toast_rate_limited), dur), ToneGenerator.TONE_CDMA_ABBR_ALERT, 200);
-                    return;
-                }
-
-                if (isRequestRunning) {
-                    return;
-                }
-
+                if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 50);
                 String flag = binding.flagInput.getText().toString().trim();
-                if (flag.isEmpty()) {
-                    showThrottledAlert(getString(R.string.toast_empty_flag), ToneGenerator.TONE_CDMA_ABBR_ALERT, 200);
-                    return;
-                }
-
-                if (!appRateLimiter.recordAndCheck()) {
-                    long remainingSec = appRateLimiter.getRemainingBanSeconds();
-                    String dur = ToastHelper.formatDuration(remainingSec);
-                    showThrottledAlert(String.format(getString(R.string.toast_rate_limited), dur), ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
-                    terminalLogger.log("> [SYS] Rate limit exceeded: 10 requests / min. Cooldown: 5 min.");
-                    return;
-                }
-
-                isRequestRunning = true;
+                if (flag.isEmpty()) return;
                 setButtonsState(false);
-                playButtonTone();
-                terminalLogger.log(getString(R.string.log_flag_submitting));
+                terminalLogger.log(getString(R.string.log_verifying_flag));
                 verifyFlag(flag);
             }
         });
     }
+
+    // --- Handshake & Vault Unlock Pipeline ---
 
     /**
      * Executes the Phase 1 cryptographic handshake sequence on a background thread.
@@ -290,6 +155,12 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 try {
+                    handler.post(new Runnable() { @Override public void run() { terminalLogger.log(SecurityChecks.getEnvironmentSummary()); }});
+                    Thread.sleep(300);
+
+                    handler.post(new Runnable() { @Override public void run() { terminalLogger.log(getString(R.string.log_generating_token)); }});
+                    Thread.sleep(400);
+
                     String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
                     String hash = CryptoHelper.computeHandshakeSignature(timestamp);
 
@@ -297,17 +168,20 @@ public class MainActivity extends AppCompatActivity {
                     payloadJson.put("timestamp", timestamp);
                     payloadJson.put("hash", hash);
 
+                    handler.post(new Runnable() { @Override public void run() { terminalLogger.log(getString(R.string.log_loading_native_lib)); }});
+                    Thread.sleep(400);
+
                     byte[] keyBytes = getE2EKey().getBytes(StandardCharsets.UTF_8);
+
+                    handler.post(new Runnable() { @Override public void run() { terminalLogger.log(getString(R.string.log_extracting_key)); }});
+                    Thread.sleep(400);
+
+                    handler.post(new Runnable() { @Override public void run() { terminalLogger.log(getString(R.string.log_encrypting_payload)); }});
+                    Thread.sleep(400);
+
                     JSONObject encryptedPayload = CryptoHelper.encryptPayload(payloadJson, keyBytes);
 
-                    handler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (isActivityAlive()) {
-                                terminalLogger.log(getString(R.string.log_handshake_transmit));
-                            }
-                        }
-                    });
+                    handler.post(new Runnable() { @Override public void run() { terminalLogger.log(getString(R.string.log_transmitting)); }});
 
                     VaultApiClient.postJson(VaultApiClient.STAGE1_URL, encryptedPayload, new VaultApiClient.ApiCallback() {
                         @Override
@@ -316,20 +190,12 @@ public class MainActivity extends AppCompatActivity {
                             handler.post(new Runnable() {
                                 @Override
                                 public void run() {
-                                    if (!isActivityAlive()) return;
                                     terminalLogger.log("> [" + responseCode + "] " + displayMessage, new TerminalLogger.OnCompleteListener() {
                                         @Override
                                         public void onComplete() {
-                                            if (!isActivityAlive()) return;
-                                            if (responseCode == 429) {
-                                                int retrySec = VaultApiClient.extractRetryAfterSeconds(body, 300);
-                                                appRateLimiter.applyServerBan(retrySec);
-                                                String formattedDur = ToastHelper.formatDuration(retrySec);
-                                                showThrottledAlert(String.format(getString(R.string.toast_rate_limited), formattedDur), ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
-                                            } else if (responseCode != 200) {
+                                            if (responseCode == 401) {
                                                 if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
                                             }
-                                            isRequestRunning = false;
                                             setButtonsState(true);
                                         }
                                     });
@@ -342,13 +208,10 @@ public class MainActivity extends AppCompatActivity {
                             handler.post(new Runnable() {
                                 @Override
                                 public void run() {
-                                    if (!isActivityAlive()) return;
                                     terminalLogger.log(translateErrorCode(errorCode), new TerminalLogger.OnCompleteListener() {
                                         @Override
                                         public void onComplete() {
-                                            if (!isActivityAlive()) return;
                                             if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
-                                            isRequestRunning = false;
                                             setButtonsState(true);
                                         }
                                     });
@@ -361,12 +224,9 @@ public class MainActivity extends AppCompatActivity {
                     handler.post(new Runnable() {
                         @Override
                         public void run() {
-                            if (!isActivityAlive()) return;
                             terminalLogger.log(getString(R.string.err_unexpected), new TerminalLogger.OnCompleteListener() {
                                 @Override
                                 public void onComplete() {
-                                    if (!isActivityAlive()) return;
-                                    isRequestRunning = false;
                                     setButtonsState(true);
                                 }
                             });
@@ -376,6 +236,8 @@ public class MainActivity extends AppCompatActivity {
             }
         }).start();
     }
+
+    // --- Flag Verification Pipeline ---
 
     /**
      * Submits candidate flag to the remote server for validation and Hall of Fame unlocking.
@@ -393,12 +255,9 @@ public class MainActivity extends AppCompatActivity {
                     handler.post(new Runnable() {
                         @Override
                         public void run() {
-                            if (!isActivityAlive()) return;
                             terminalLogger.log(getString(R.string.err_unexpected), new TerminalLogger.OnCompleteListener() {
                                 @Override
                                 public void onComplete() {
-                                    if (!isActivityAlive()) return;
-                                    isRequestRunning = false;
                                     setButtonsState(true);
                                 }
                             });
@@ -413,25 +272,14 @@ public class MainActivity extends AppCompatActivity {
                         handler.post(new Runnable() {
                             @Override
                             public void run() {
-                                if (!isActivityAlive()) return;
                                 if (responseCode == 200) {
                                     try {
                                         JSONObject resJson = new JSONObject(body);
-                                        isRequestRunning = false;
-                                        honorScreenManager.start(resJson.getString("message"), new HonorScreenManager.OnCinematicFinishedListener() {
-                                            @Override
-                                            public void onFinished() {
-                                                terminalLogger.clear();
-                                                setButtonsState(true);
-                                                terminalLogger.log(getString(R.string.log_system_rebooted));
-                                            }
-                                        });
+                                        showHonorScreen(resJson.getString("message"));
                                     } catch (Exception e) {
                                         terminalLogger.log(getString(R.string.err_unexpected), new TerminalLogger.OnCompleteListener() {
                                             @Override
                                             public void onComplete() {
-                                                if (!isActivityAlive()) return;
-                                                isRequestRunning = false;
                                                 setButtonsState(true);
                                             }
                                         });
@@ -441,16 +289,7 @@ public class MainActivity extends AppCompatActivity {
                                     terminalLogger.log("> [" + responseCode + "] " + displayMessage, new TerminalLogger.OnCompleteListener() {
                                         @Override
                                         public void onComplete() {
-                                            if (!isActivityAlive()) return;
-                                            if (responseCode == 429) {
-                                                int retrySec = VaultApiClient.extractRetryAfterSeconds(body, 300);
-                                                appRateLimiter.applyServerBan(retrySec);
-                                                String formattedDur = ToastHelper.formatDuration(retrySec);
-                                                showThrottledAlert(String.format(getString(R.string.toast_rate_limited), formattedDur), ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
-                                            } else {
-                                                if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
-                                            }
-                                            isRequestRunning = false;
+                                            if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
                                             setButtonsState(true);
                                         }
                                     });
@@ -464,13 +303,10 @@ public class MainActivity extends AppCompatActivity {
                         handler.post(new Runnable() {
                             @Override
                             public void run() {
-                                if (!isActivityAlive()) return;
                                 terminalLogger.log(translateErrorCode(errorCode), new TerminalLogger.OnCompleteListener() {
                                     @Override
                                     public void onComplete() {
-                                        if (!isActivityAlive()) return;
                                         if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
-                                        isRequestRunning = false;
                                         setButtonsState(true);
                                     }
                                 });
@@ -481,6 +317,8 @@ public class MainActivity extends AppCompatActivity {
             }
         }).start();
     }
+
+    // --- Network Error Translation ---
 
     /**
      * Maps internal error codes to localized string resources.
@@ -499,18 +337,104 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // --- Honor Screen Presentation ---
+
+    /**
+     * Triggers the cinematic Hall of Fame screen with audio playback and auto-scrolling credits.
+     *
+     * @param message Structured debriefing message received from the server
+     */
+    private void showHonorScreen(String message) {
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        binding.mainLayout.setVisibility(View.GONE);
+        binding.honorLayout.setVisibility(View.VISIBLE);
+        binding.honorText.setText(message);
+
+        binding.honorLayout.setAlpha(0.0f);
+        binding.honorLayout.animate().alpha(1.0f).setDuration(5000).start();
+
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                NestedScrollView scroll = binding.honorScroll;
+                View content = scroll.getChildAt(0);
+                int maxScroll = content.getHeight() - scroll.getHeight();
+                if (maxScroll > 0) {
+                    ObjectAnimator animator = ObjectAnimator.ofInt(scroll, "scrollY", 0, maxScroll);
+                    animator.setDuration(82000);
+                    animator.setInterpolator(new LinearInterpolator());
+                    animator.start();
+                }
+            }
+        }, 2000);
+
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (mediaPlayer != null) {
+                    android.animation.ValueAnimator fadeAudio = android.animation.ValueAnimator.ofFloat(1.0f, 0.0f);
+                    fadeAudio.setDuration(5000);
+                    fadeAudio.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
+                        @Override
+                        public void onAnimationUpdate(android.animation.ValueAnimator animation) {
+                            if (mediaPlayer != null) {
+                                float vol = (float) animation.getAnimatedValue();
+                                mediaPlayer.setVolume(vol, vol);
+                            }
+                        }
+                    });
+                    fadeAudio.start();
+                }
+
+                binding.honorLayout.animate().alpha(0.0f).setDuration(5000).withEndAction(new Runnable() {
+                    @Override
+                    public void run() {
+                        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                        if (mediaPlayer != null) {
+                            if (mediaPlayer.isPlaying()) mediaPlayer.stop();
+                            mediaPlayer.release();
+                            mediaPlayer = null;
+                        }
+                        binding.honorLayout.setVisibility(View.GONE);
+                        binding.honorLayout.setAlpha(1.0f);
+
+                        terminalLogger.clear();
+
+                        binding.mainLayout.setVisibility(View.VISIBLE);
+                        binding.flagInput.setText("");
+                        setButtonsState(true);
+                        terminalLogger.log(getString(R.string.log_system_rebooted));
+                    }
+                }).start();
+            }
+        }, 87000);
+
+        try {
+            mediaPlayer = MediaPlayer.create(this, R.raw.bgm);
+            if (mediaPlayer != null) {
+                mediaPlayer.setLooping(true);
+                mediaPlayer.start();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (honorScreenManager != null) {
-            honorScreenManager.onDestroy();
-        }
-        if (toastHelper != null) {
-            toastHelper.dismiss();
-        }
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         if (toneGen != null) {
             toneGen.release();
             toneGen = null;
+        }
+        if (mediaPlayer != null) {
+            if (mediaPlayer.isPlaying()) {
+                mediaPlayer.stop();
+            }
+            mediaPlayer.release();
+            mediaPlayer = null;
         }
         handler.removeCallbacksAndMessages(null);
     }

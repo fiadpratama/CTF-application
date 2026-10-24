@@ -116,40 +116,4 @@ public class VaultApiClient {
             return "PARSE_FAILED";
         }
     }
-
-    /**
-     * Extracts cooldown duration in seconds from 429 rate limit responses.
-     *
-     * @param rawJsonBody Raw HTTP response body
-     * @param defaultSeconds Fallback cooldown duration if extraction fails
-     * @return Extracted cooldown seconds, or defaultSeconds
-     */
-    public static int extractRetryAfterSeconds(String rawJsonBody, int defaultSeconds) {
-        if (rawJsonBody == null || rawJsonBody.trim().isEmpty()) {
-            return defaultSeconds;
-        }
-        try {
-            JSONObject json = new JSONObject(rawJsonBody);
-            if (json.has("retry_after")) {
-                int sec = json.getInt("retry_after");
-                if (sec > 0) return sec;
-            }
-            if (json.has("retryAfter")) {
-                int sec = json.getInt("retryAfter");
-                if (sec > 0) return sec;
-            }
-        } catch (Exception ignored) {
-        }
-        return defaultSeconds;
-    }
-
-    /**
-     * Extracts cooldown duration in seconds with a safe 60-second default.
-     *
-     * @param rawJsonBody Raw HTTP response body
-     * @return Extracted cooldown seconds
-     */
-    public static int extractRetryAfterSeconds(String rawJsonBody) {
-        return extractRetryAfterSeconds(rawJsonBody, 60);
-    }
 }
