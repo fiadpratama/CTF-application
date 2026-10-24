@@ -1,40 +1,33 @@
 package io.github.fiadpratama.ctfapplication;
 
-import android.animation.ObjectAnimator;
-import android.animation.ValueAnimator;
 import android.content.Context;
 import android.media.AudioManager;
-import android.media.MediaPlayer;
 import android.media.ToneGenerator;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.SystemClock;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.animation.LinearInterpolator;
 import android.view.inputmethod.InputMethodManager;
-import android.view.WindowManager;
-import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.splashscreen.SplashScreen;
-import androidx.core.widget.NestedScrollView;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Locale;
-
 import org.json.JSONObject;
 
 import io.github.fiadpratama.ctfapplication.crypto.CryptoHelper;
 import io.github.fiadpratama.ctfapplication.databinding.ActivityMainBinding;
 import io.github.fiadpratama.ctfapplication.network.VaultApiClient;
+import io.github.fiadpratama.ctfapplication.ui.HonorScreenManager;
 import io.github.fiadpratama.ctfapplication.ui.TerminalLogger;
+import io.github.fiadpratama.ctfapplication.ui.ToastHelper;
+import io.github.fiadpratama.ctfapplication.util.AppRateLimiter;
 import io.github.fiadpratama.ctfapplication.util.SecurityChecks;
 
 /**
  * Main Activity
  *
- * Core coordinator for the Android CTF client application. Manages immersive UI presentation,
+ * Core coordinator for the Android CTF client application. Manages UI event dispatching,
  * terminal console streaming, native cryptographic handshakes, and flag verification workflows.
  */
 public class MainActivity extends AppCompatActivity {
@@ -43,12 +36,9 @@ public class MainActivity extends AppCompatActivity {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private ToneGenerator toneGen;
     private TerminalLogger terminalLogger;
-    private MediaPlayer mediaPlayer;
-    private ObjectAnimator honorScrollAnimator;
-    private ValueAnimator honorAudioAnimator;
-    private boolean isHonorScreenActive = false;
-
-    private final io.github.fiadpratama.ctfapplication.util.AppRateLimiter appRateLimiter = new io.github.fiadpratama.ctfapplication.util.AppRateLimiter();
+    private HonorScreenManager honorScreenManager;
+    private final ToastHelper toastHelper = new ToastHelper();
+    private final AppRateLimiter appRateLimiter = new AppRateLimiter();
     private boolean isRequestRunning = false;
 
     static {
@@ -77,9 +67,9 @@ public class MainActivity extends AppCompatActivity {
             | View.SYSTEM_UI_FLAG_FULLSCREEN);
 
         terminalLogger = new TerminalLogger(binding.terminalLogText, binding.terminalScrollView, handler);
+        honorScreenManager = new HonorScreenManager(this, binding);
 
         setupListeners();
-
         initTerminalDiagnostics();
     }
 
@@ -99,16 +89,16 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        if (mediaPlayer != null && mediaPlayer.isPlaying()) {
-            mediaPlayer.pause();
+        if (honorScreenManager != null) {
+            honorScreenManager.onPause();
         }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        if (isHonorScreenActive && mediaPlayer != null && !mediaPlayer.isPlaying()) {
-            mediaPlayer.start();
+        if (honorScreenManager != null) {
+            honorScreenManager.onResume();
         }
     }
 
@@ -122,32 +112,19 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Displays a standardized bottom-center notification pop-up.
+     * Displays a debounced toast alert and plays an auditory tone if the notification is shown.
      *
-     * @param message Text to display in the Toast
+     * @param message Text to display
+     * @param toneType ToneGenerator tone identifier (0 for no tone)
+     * @param toneDuration Duration of tone playback in ms
      */
-    private void showToast(String message) {
-        if (!isActivityAlive() || message == null || message.trim().isEmpty()) return;
-        Toast.makeText(getApplicationContext(), message, Toast.LENGTH_SHORT).show();
-    }
-
-    /**
-     * Formats seconds into a human-readable duration string for alerts.
-     * Examples: "5 min", "4 min 35 s", "45 s".
-     *
-     * @param seconds Duration in seconds
-     * @return Formatted duration string
-     */
-    private String formatCooldownDuration(long seconds) {
-        if (seconds >= 60) {
-            long mins = seconds / 60;
-            long secs = seconds % 60;
-            if (secs == 0) {
-                return String.format(Locale.getDefault(), "%d min", mins);
+    private void showThrottledAlert(String message, int toneType, int toneDuration) {
+        if (!isActivityAlive()) return;
+        if (toastHelper.showThrottled(this, message)) {
+            if (toneGen != null && toneType != 0) {
+                toneGen.startTone(toneType, toneDuration);
             }
-            return String.format(Locale.getDefault(), "%d min %02d s", mins, secs);
         }
-        return String.format(Locale.getDefault(), "%d s", Math.max(0, seconds));
     }
 
     /**
@@ -190,8 +167,8 @@ public class MainActivity extends AppCompatActivity {
 
                 if (appRateLimiter.isBanned()) {
                     long remainingSec = appRateLimiter.getRemainingBanSeconds();
-                    showToast(String.format(getString(R.string.toast_rate_limited), formatCooldownDuration(remainingSec)));
-                    if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 200);
+                    String dur = ToastHelper.formatDuration(remainingSec);
+                    showThrottledAlert(String.format(getString(R.string.toast_rate_limited), dur), ToneGenerator.TONE_CDMA_ABBR_ALERT, 200);
                     return;
                 }
 
@@ -201,8 +178,8 @@ public class MainActivity extends AppCompatActivity {
 
                 if (!appRateLimiter.recordAndCheck()) {
                     long remainingSec = appRateLimiter.getRemainingBanSeconds();
-                    showToast(String.format(getString(R.string.toast_rate_limited), formatCooldownDuration(remainingSec)));
-                    if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
+                    String dur = ToastHelper.formatDuration(remainingSec);
+                    showThrottledAlert(String.format(getString(R.string.toast_rate_limited), dur), ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
                     terminalLogger.log("> [SYS] Rate limit exceeded: 10 requests / min. Cooldown: 5 min.");
                     return;
                 }
@@ -222,8 +199,8 @@ public class MainActivity extends AppCompatActivity {
 
                 if (appRateLimiter.isBanned()) {
                     long remainingSec = appRateLimiter.getRemainingBanSeconds();
-                    showToast(String.format(getString(R.string.toast_rate_limited), formatCooldownDuration(remainingSec)));
-                    if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 200);
+                    String dur = ToastHelper.formatDuration(remainingSec);
+                    showThrottledAlert(String.format(getString(R.string.toast_rate_limited), dur), ToneGenerator.TONE_CDMA_ABBR_ALERT, 200);
                     return;
                 }
 
@@ -233,14 +210,14 @@ public class MainActivity extends AppCompatActivity {
 
                 String flag = binding.flagInput.getText().toString().trim();
                 if (flag.isEmpty()) {
-                    showToast(getString(R.string.toast_empty_flag));
+                    showThrottledAlert(getString(R.string.toast_empty_flag), ToneGenerator.TONE_CDMA_ABBR_ALERT, 200);
                     return;
                 }
 
                 if (!appRateLimiter.recordAndCheck()) {
                     long remainingSec = appRateLimiter.getRemainingBanSeconds();
-                    showToast(String.format(getString(R.string.toast_rate_limited), formatCooldownDuration(remainingSec)));
-                    if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
+                    String dur = ToastHelper.formatDuration(remainingSec);
+                    showThrottledAlert(String.format(getString(R.string.toast_rate_limited), dur), ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
                     terminalLogger.log("> [SYS] Rate limit exceeded: 10 requests / min. Cooldown: 5 min.");
                     return;
                 }
@@ -253,8 +230,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
-
-    // --- Handshake & Vault Unlock Pipeline ---
 
     /**
      * Executes the Phase 1 cryptographic handshake sequence on a background thread.
@@ -298,9 +273,8 @@ public class MainActivity extends AppCompatActivity {
                                             if (responseCode == 429) {
                                                 int retrySec = VaultApiClient.extractRetryAfterSeconds(body, 300);
                                                 appRateLimiter.applyServerBan(retrySec);
-                                                String formattedDur = formatCooldownDuration(retrySec);
-                                                showToast(String.format(getString(R.string.toast_rate_limited), formattedDur));
-                                                if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
+                                                String formattedDur = ToastHelper.formatDuration(retrySec);
+                                                showThrottledAlert(String.format(getString(R.string.toast_rate_limited), formattedDur), ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
                                             } else if (responseCode != 200) {
                                                 if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
                                             }
@@ -392,7 +366,15 @@ public class MainActivity extends AppCompatActivity {
                                 if (responseCode == 200) {
                                     try {
                                         JSONObject resJson = new JSONObject(body);
-                                        showHonorScreen(resJson.getString("message"));
+                                        isRequestRunning = false;
+                                        honorScreenManager.start(resJson.getString("message"), new HonorScreenManager.OnCinematicFinishedListener() {
+                                            @Override
+                                            public void onFinished() {
+                                                terminalLogger.clear();
+                                                setButtonsState(true);
+                                                terminalLogger.log(getString(R.string.log_system_rebooted));
+                                            }
+                                        });
                                     } catch (Exception e) {
                                         terminalLogger.log(getString(R.string.err_unexpected), new TerminalLogger.OnCompleteListener() {
                                             @Override
@@ -412,9 +394,8 @@ public class MainActivity extends AppCompatActivity {
                                             if (responseCode == 429) {
                                                 int retrySec = VaultApiClient.extractRetryAfterSeconds(body, 300);
                                                 appRateLimiter.applyServerBan(retrySec);
-                                                String formattedDur = formatCooldownDuration(retrySec);
-                                                showToast(String.format(getString(R.string.toast_rate_limited), formattedDur));
-                                                if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
+                                                String formattedDur = ToastHelper.formatDuration(retrySec);
+                                                showThrottledAlert(String.format(getString(R.string.toast_rate_limited), formattedDur), ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
                                             } else {
                                                 if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
                                             }
@@ -467,120 +448,18 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Triggers the cinematic Hall of Fame screen with audio playback and auto-scrolling credits.
-     *
-     * @param message Structured debriefing message received from the server
-     */
-    private void showHonorScreen(String message) {
-        if (!isActivityAlive()) return;
-        isHonorScreenActive = true;
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-
-        binding.mainLayout.setVisibility(View.GONE);
-        binding.honorLayout.setVisibility(View.VISIBLE);
-        binding.honorText.setText(message);
-
-        binding.honorLayout.setAlpha(0.0f);
-        binding.honorLayout.animate().alpha(1.0f).setDuration(5000).start();
-
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                if (!isActivityAlive()) return;
-                NestedScrollView scroll = binding.honorScroll;
-                View content = scroll.getChildAt(0);
-                int maxScroll = content.getHeight() - scroll.getHeight();
-                if (maxScroll > 0) {
-                    honorScrollAnimator = ObjectAnimator.ofInt(scroll, "scrollY", 0, maxScroll);
-                    honorScrollAnimator.setDuration(82000);
-                    honorScrollAnimator.setInterpolator(new LinearInterpolator());
-                    honorScrollAnimator.start();
-                }
-            }
-        }, 2000);
-
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                if (!isActivityAlive()) return;
-                if (mediaPlayer != null) {
-                    honorAudioAnimator = ValueAnimator.ofFloat(1.0f, 0.0f);
-                    honorAudioAnimator.setDuration(5000);
-                    honorAudioAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                        @Override
-                        public void onAnimationUpdate(ValueAnimator animation) {
-                            if (mediaPlayer != null) {
-                                float vol = (float) animation.getAnimatedValue();
-                                mediaPlayer.setVolume(vol, vol);
-                            }
-                        }
-                    });
-                    honorAudioAnimator.start();
-                }
-
-                binding.honorLayout.animate().alpha(0.0f).setDuration(5000).withEndAction(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (!isActivityAlive()) return;
-                        isHonorScreenActive = false;
-                        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-                        if (mediaPlayer != null) {
-                            if (mediaPlayer.isPlaying()) mediaPlayer.stop();
-                            mediaPlayer.release();
-                            mediaPlayer = null;
-                        }
-                        binding.honorLayout.setVisibility(View.GONE);
-                        binding.honorLayout.setAlpha(1.0f);
-
-                        terminalLogger.clear();
-
-                        binding.mainLayout.setVisibility(View.VISIBLE);
-                        binding.flagInput.setText("");
-                        setButtonsState(true);
-                        terminalLogger.log(getString(R.string.log_system_rebooted));
-                    }
-                }).start();
-            }
-        }, 87000);
-
-        try {
-            mediaPlayer = MediaPlayer.create(this, R.raw.bgm);
-            if (mediaPlayer != null) {
-                mediaPlayer.setLooping(true);
-                mediaPlayer.start();
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        isHonorScreenActive = false;
-        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        if (honorScrollAnimator != null) {
-            honorScrollAnimator.cancel();
-            honorScrollAnimator = null;
+        if (honorScreenManager != null) {
+            honorScreenManager.onDestroy();
         }
-        if (honorAudioAnimator != null) {
-            honorAudioAnimator.cancel();
-            honorAudioAnimator = null;
-        }
-        if (binding != null) {
-            binding.honorLayout.animate().cancel();
+        if (toastHelper != null) {
+            toastHelper.dismiss();
         }
         if (toneGen != null) {
             toneGen.release();
             toneGen = null;
-        }
-        if (mediaPlayer != null) {
-            if (mediaPlayer.isPlaying()) {
-                mediaPlayer.stop();
-            }
-            mediaPlayer.release();
-            mediaPlayer = null;
         }
         handler.removeCallbacksAndMessages(null);
     }
