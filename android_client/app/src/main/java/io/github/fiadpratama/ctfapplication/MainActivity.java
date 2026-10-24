@@ -1,6 +1,7 @@
 package io.github.fiadpratama.ctfapplication;
 
 import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
@@ -40,18 +41,21 @@ public class MainActivity extends AppCompatActivity {
     private ToneGenerator toneGen;
     private TerminalLogger terminalLogger;
     private MediaPlayer mediaPlayer;
+    private ObjectAnimator honorScrollAnimator;
+    private ValueAnimator honorAudioAnimator;
+    private boolean isHonorScreenActive = false;
 
     static {
         System.loadLibrary("native-crypto");
     }
 
     /**
-     * Native call to recover the end-to-end symmetric encryption key.
+     * Native interface: retrieves session encryption key.
      */
     public native String getE2EKey();
 
     /**
-     * Native call to recover the authorized handshake backdoor credential.
+     * Native interface: retrieves maintenance protocol token.
      */
     public native String getBackdoor();
 
@@ -83,6 +87,31 @@ public class MainActivity extends AppCompatActivity {
         terminalLogger.log(getString(R.string.log_system_idle));
     }
 
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+            mediaPlayer.pause();
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (isHonorScreenActive && mediaPlayer != null && !mediaPlayer.isPlaying()) {
+            mediaPlayer.start();
+        }
+    }
+
+    /**
+     * Evaluates whether the Activity is still active and safe for UI updates.
+     *
+     * @return true if Activity is neither finishing nor destroyed
+     */
+    private boolean isActivityAlive() {
+        return !isFinishing() && !isDestroyed();
+    }
+
     // --- UI State & Input Handling ---
 
     /**
@@ -91,6 +120,7 @@ public class MainActivity extends AppCompatActivity {
      * @param isEnabled true to enable user interaction; false to lock
      */
     private void setButtonsState(boolean isEnabled) {
+        if (!isActivityAlive()) return;
         binding.unlockButton.setEnabled(isEnabled);
         binding.submitFlagBtn.setEnabled(isEnabled);
     }
@@ -155,10 +185,10 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 try {
-                    handler.post(new Runnable() { @Override public void run() { terminalLogger.log(SecurityChecks.getEnvironmentSummary()); }});
+                    handler.post(new Runnable() { @Override public void run() { if (isActivityAlive()) terminalLogger.log(SecurityChecks.getEnvironmentSummary()); }});
                     Thread.sleep(300);
 
-                    handler.post(new Runnable() { @Override public void run() { terminalLogger.log(getString(R.string.log_generating_token)); }});
+                    handler.post(new Runnable() { @Override public void run() { if (isActivityAlive()) terminalLogger.log(getString(R.string.log_generating_token)); }});
                     Thread.sleep(400);
 
                     String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
@@ -168,20 +198,20 @@ public class MainActivity extends AppCompatActivity {
                     payloadJson.put("timestamp", timestamp);
                     payloadJson.put("hash", hash);
 
-                    handler.post(new Runnable() { @Override public void run() { terminalLogger.log(getString(R.string.log_loading_native_lib)); }});
+                    handler.post(new Runnable() { @Override public void run() { if (isActivityAlive()) terminalLogger.log(getString(R.string.log_loading_native_lib)); }});
                     Thread.sleep(400);
 
                     byte[] keyBytes = getE2EKey().getBytes(StandardCharsets.UTF_8);
 
-                    handler.post(new Runnable() { @Override public void run() { terminalLogger.log(getString(R.string.log_extracting_key)); }});
+                    handler.post(new Runnable() { @Override public void run() { if (isActivityAlive()) terminalLogger.log(getString(R.string.log_extracting_key)); }});
                     Thread.sleep(400);
 
-                    handler.post(new Runnable() { @Override public void run() { terminalLogger.log(getString(R.string.log_encrypting_payload)); }});
+                    handler.post(new Runnable() { @Override public void run() { if (isActivityAlive()) terminalLogger.log(getString(R.string.log_encrypting_payload)); }});
                     Thread.sleep(400);
 
                     JSONObject encryptedPayload = CryptoHelper.encryptPayload(payloadJson, keyBytes);
 
-                    handler.post(new Runnable() { @Override public void run() { terminalLogger.log(getString(R.string.log_transmitting)); }});
+                    handler.post(new Runnable() { @Override public void run() { if (isActivityAlive()) terminalLogger.log(getString(R.string.log_transmitting)); }});
 
                     VaultApiClient.postJson(VaultApiClient.STAGE1_URL, encryptedPayload, new VaultApiClient.ApiCallback() {
                         @Override
@@ -190,10 +220,12 @@ public class MainActivity extends AppCompatActivity {
                             handler.post(new Runnable() {
                                 @Override
                                 public void run() {
+                                    if (!isActivityAlive()) return;
                                     terminalLogger.log("> [" + responseCode + "] " + displayMessage, new TerminalLogger.OnCompleteListener() {
                                         @Override
                                         public void onComplete() {
-                                            if (responseCode == 401) {
+                                            if (!isActivityAlive()) return;
+                                            if (responseCode != 200) {
                                                 if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
                                             }
                                             setButtonsState(true);
@@ -208,9 +240,11 @@ public class MainActivity extends AppCompatActivity {
                             handler.post(new Runnable() {
                                 @Override
                                 public void run() {
+                                    if (!isActivityAlive()) return;
                                     terminalLogger.log(translateErrorCode(errorCode), new TerminalLogger.OnCompleteListener() {
                                         @Override
                                         public void onComplete() {
+                                            if (!isActivityAlive()) return;
                                             if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
                                             setButtonsState(true);
                                         }
@@ -224,9 +258,11 @@ public class MainActivity extends AppCompatActivity {
                     handler.post(new Runnable() {
                         @Override
                         public void run() {
+                            if (!isActivityAlive()) return;
                             terminalLogger.log(getString(R.string.err_unexpected), new TerminalLogger.OnCompleteListener() {
                                 @Override
                                 public void onComplete() {
+                                    if (!isActivityAlive()) return;
                                     setButtonsState(true);
                                 }
                             });
@@ -255,9 +291,11 @@ public class MainActivity extends AppCompatActivity {
                     handler.post(new Runnable() {
                         @Override
                         public void run() {
+                            if (!isActivityAlive()) return;
                             terminalLogger.log(getString(R.string.err_unexpected), new TerminalLogger.OnCompleteListener() {
                                 @Override
                                 public void onComplete() {
+                                    if (!isActivityAlive()) return;
                                     setButtonsState(true);
                                 }
                             });
@@ -272,6 +310,7 @@ public class MainActivity extends AppCompatActivity {
                         handler.post(new Runnable() {
                             @Override
                             public void run() {
+                                if (!isActivityAlive()) return;
                                 if (responseCode == 200) {
                                     try {
                                         JSONObject resJson = new JSONObject(body);
@@ -280,6 +319,7 @@ public class MainActivity extends AppCompatActivity {
                                         terminalLogger.log(getString(R.string.err_unexpected), new TerminalLogger.OnCompleteListener() {
                                             @Override
                                             public void onComplete() {
+                                                if (!isActivityAlive()) return;
                                                 setButtonsState(true);
                                             }
                                         });
@@ -289,6 +329,7 @@ public class MainActivity extends AppCompatActivity {
                                     terminalLogger.log("> [" + responseCode + "] " + displayMessage, new TerminalLogger.OnCompleteListener() {
                                         @Override
                                         public void onComplete() {
+                                            if (!isActivityAlive()) return;
                                             if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
                                             setButtonsState(true);
                                         }
@@ -303,9 +344,11 @@ public class MainActivity extends AppCompatActivity {
                         handler.post(new Runnable() {
                             @Override
                             public void run() {
+                                if (!isActivityAlive()) return;
                                 terminalLogger.log(translateErrorCode(errorCode), new TerminalLogger.OnCompleteListener() {
                                     @Override
                                     public void onComplete() {
+                                        if (!isActivityAlive()) return;
                                         if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
                                         setButtonsState(true);
                                     }
@@ -345,6 +388,8 @@ public class MainActivity extends AppCompatActivity {
      * @param message Structured debriefing message received from the server
      */
     private void showHonorScreen(String message) {
+        if (!isActivityAlive()) return;
+        isHonorScreenActive = true;
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         binding.mainLayout.setVisibility(View.GONE);
@@ -357,14 +402,15 @@ public class MainActivity extends AppCompatActivity {
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
+                if (!isActivityAlive()) return;
                 NestedScrollView scroll = binding.honorScroll;
                 View content = scroll.getChildAt(0);
                 int maxScroll = content.getHeight() - scroll.getHeight();
                 if (maxScroll > 0) {
-                    ObjectAnimator animator = ObjectAnimator.ofInt(scroll, "scrollY", 0, maxScroll);
-                    animator.setDuration(82000);
-                    animator.setInterpolator(new LinearInterpolator());
-                    animator.start();
+                    honorScrollAnimator = ObjectAnimator.ofInt(scroll, "scrollY", 0, maxScroll);
+                    honorScrollAnimator.setDuration(82000);
+                    honorScrollAnimator.setInterpolator(new LinearInterpolator());
+                    honorScrollAnimator.start();
                 }
             }
         }, 2000);
@@ -372,24 +418,27 @@ public class MainActivity extends AppCompatActivity {
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
+                if (!isActivityAlive()) return;
                 if (mediaPlayer != null) {
-                    android.animation.ValueAnimator fadeAudio = android.animation.ValueAnimator.ofFloat(1.0f, 0.0f);
-                    fadeAudio.setDuration(5000);
-                    fadeAudio.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
+                    honorAudioAnimator = ValueAnimator.ofFloat(1.0f, 0.0f);
+                    honorAudioAnimator.setDuration(5000);
+                    honorAudioAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
                         @Override
-                        public void onAnimationUpdate(android.animation.ValueAnimator animation) {
+                        public void onAnimationUpdate(ValueAnimator animation) {
                             if (mediaPlayer != null) {
                                 float vol = (float) animation.getAnimatedValue();
                                 mediaPlayer.setVolume(vol, vol);
                             }
                         }
                     });
-                    fadeAudio.start();
+                    honorAudioAnimator.start();
                 }
 
                 binding.honorLayout.animate().alpha(0.0f).setDuration(5000).withEndAction(new Runnable() {
                     @Override
                     public void run() {
+                        if (!isActivityAlive()) return;
+                        isHonorScreenActive = false;
                         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                         if (mediaPlayer != null) {
                             if (mediaPlayer.isPlaying()) mediaPlayer.stop();
@@ -424,7 +473,19 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        isHonorScreenActive = false;
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        if (honorScrollAnimator != null) {
+            honorScrollAnimator.cancel();
+            honorScrollAnimator = null;
+        }
+        if (honorAudioAnimator != null) {
+            honorAudioAnimator.cancel();
+            honorAudioAnimator = null;
+        }
+        if (binding != null) {
+            binding.honorLayout.animate().cancel();
+        }
         if (toneGen != null) {
             toneGen.release();
             toneGen = null;

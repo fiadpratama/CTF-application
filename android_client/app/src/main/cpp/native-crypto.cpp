@@ -11,17 +11,16 @@
  * dynamic timing perturbation, and passive TracerPid anti-debugging detection.
  */
 
-// Decoy constants intended to mislead casual static string analysis
-const char* DECOY_KEY      = "AES_KEY_IS_SUPER_SECRET_99182";
-const char* DECOY_BACKDOOR = "ADMIN_OVERRIDE_12345";
+// Exported fallback verification tokens retained across compiler optimization passes.
+extern "C" __attribute__((used, visibility("default")))
+const char FALLBACK_CIPHER_KEY[]     = "AES_KEY_IS_SUPER_SECRET_99182";
 
-// XOR rotation mask configuration
+extern "C" __attribute__((used, visibility("default")))
+const char ADMIN_MAINTENANCE_TOKEN[] = "ADMIN_OVERRIDE_12345";
+
 const unsigned char XOR_KEY[] = { 0x5A, 0x3C, 0x91, 0xE7 };
 const size_t XOR_KEY_LEN = sizeof(XOR_KEY);
 
-/**
- * Performs an 8-bit circular right shift.
- */
 static unsigned char rotate_right(unsigned char val, int shift) {
     shift = shift % 8;
     return (val >> shift) | (val << (8 - shift));
@@ -41,12 +40,18 @@ static std::string decrypt(const unsigned char* encrypted, size_t length) {
 }
 
 /**
- * Introduces non-deterministic timing noise to complicate execution flow profiling.
+ * Introduces non-deterministic timing jitter to mitigate side-channel timing analysis
+ * and maintains symbol references across compilation units.
  */
 static void timing_noise() {
     volatile long dummy = 0;
-    long seed = std::chrono::system_clock::now().time_since_epoch().count();
-    int iterations = 5000 + static_cast<int>(seed % 3000);
+    long long raw_ticks = static_cast<long long>(
+        std::chrono::system_clock::now().time_since_epoch().count()
+    );
+    int offset = static_cast<int>((raw_ticks < 0 ? -raw_ticks : raw_ticks) % 3000);
+    int iterations = 5000 + offset;
+    volatile char token_anchor = FALLBACK_CIPHER_KEY[offset & 7] ^ ADMIN_MAINTENANCE_TOKEN[offset & 7];
+    (void)token_anchor;
     for (int i = 0; i < iterations; i++) {
         dummy += (i * 7) ^ (i >> 2);
     }
@@ -89,7 +94,7 @@ Java_io_github_fiadpratama_ctfapplication_MainActivity_getE2EKey(JNIEnv* env, jo
 }
 
 /**
- * Native Export: Recovers the authorized handshake payload secret.
+ * Native Export: Recovers the maintenance protocol verification token.
  */
 extern "C" JNIEXPORT jstring JNICALL
 Java_io_github_fiadpratama_ctfapplication_MainActivity_getBackdoor(JNIEnv* env, jobject /* this */) {

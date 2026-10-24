@@ -105,8 +105,8 @@ function isValidFlagStatus(status) {
 
 /**
  * Stage 1: Client Handshake & Session Issuance
- * Decrypts AES-256-GCM payload, validates backdoor code via timingSafeEqual,
- * and issues a signed, single-use JWT session token with multiplier header.
+ * Decrypts AES-256-GCM payload, validates presence and correctness of backdoor_code
+ * via timingSafeEqual, and issues a signed JWT session token with multiplier header.
  */
 router.post('/stage1', (req, res) => {
     const { payload, iv, tag } = req.body || {};
@@ -119,7 +119,11 @@ router.post('/stage1', (req, res) => {
         return res.status(401).json({ status: 401, error: "Unauthorized", message: "Decryption failed" });
     }
 
-    const candidateBackdoor = typeof decryptedData.backdoor_code === 'string' ? decryptedData.backdoor_code : '';
+    const { backdoor_code: candidateBackdoor } = decryptedData;
+    if (candidateBackdoor === undefined || candidateBackdoor === null || typeof candidateBackdoor !== 'string' || candidateBackdoor.trim() === '') {
+        return res.status(400).json({ status: 400, error: "Bad Request", message: "Missing backdoor_code parameter" });
+    }
+
     const candidateBuf = Buffer.from(candidateBackdoor, 'utf8');
     const expectedBuf = Buffer.from(BACKDOOR_CODE, 'utf8');
     const isAuthorized = candidateBuf.length === expectedBuf.length && crypto.timingSafeEqual(candidateBuf, expectedBuf);
@@ -150,7 +154,7 @@ router.post('/stage1', (req, res) => {
 
 /**
  * Stage 2: Computational Proof & Flag Generation
- * Validates JWT session claims, enforces idempotent flag issuance,
+ * Validates JWT session claims, enforces idempotent flag issuance via atomic Lua,
  * verifies mathematical computation, and issues an ephemeral solve flag.
  */
 router.post('/stage2', async (req, res) => {
@@ -199,43 +203,6 @@ router.post('/stage2', async (req, res) => {
     if (/^\d+$/.test(answerText) && Number(answerText) === expectedAnswer) {
         const usedKey = `jti:${decodedSession.jti}`;
 
-        const existingFlag = await redis.get(usedKey);
-        if (existingFlag) {
-            if (typeof existingFlag === 'string' &&
-                existingFlag.length === 38 &&
-                /^FLAG\{[0-9a-f]{32}\}$/.test(existingFlag)) {
-
-                const flagStatus = await redis.get(`flag:${existingFlag}`);
-                if (isValidFlagStatus(flagStatus)) {
-                    return res.status(200).json({
-                        status: 200,
-                        message: "Access granted",
-                        flag: existingFlag
-                    });
-                }
-
-                if (!flagStatus) {
-                    return res.status(410).json({
-                        status: 410,
-                        error: "Gone",
-                        message: "Issued flag has expired"
-                    });
-                }
-
-                return res.status(500).json({
-                    status: 500,
-                    error: "Internal Server Error",
-                    message: "Invalid flag state"
-                });
-            }
-
-            return res.status(403).json({
-                status: 403,
-                error: "Forbidden",
-                message: "Session token already processed or invalid"
-            });
-        }
-
         let candidateFlag = createFlagString();
         let flagKey = `flag:${candidateFlag}`;
         let result = await redis.eval(ISSUE_FLAG_LUA, [usedKey, flagKey], [candidateFlag, '660', '900']);
@@ -247,6 +214,16 @@ router.post('/stage2', async (req, res) => {
         }
 
         if (typeof result === 'string' && result.length === 38 && /^FLAG\{[0-9a-f]{32}\}$/.test(result)) {
+            // Fast path: newly issued flag was just created atomically as 'unused' by ISSUE_FLAG_LUA
+            if (result === candidateFlag) {
+                return res.status(200).json({
+                    status: 200,
+                    message: "Access granted",
+                    flag: result
+                });
+            }
+
+            // Idempotent retry path: verify lifecycle state of previously issued flag
             const status = await redis.get(`flag:${result}`);
             if (isValidFlagStatus(status)) {
                 return res.status(200).json({

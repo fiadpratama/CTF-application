@@ -14,12 +14,12 @@ const app = express();
 
 // Security & Transport Configuration
 app.disable('x-powered-by');
-app.use(express.json({ limit: '10kb' }));
 app.set('trust proxy', 1);
 
-// Global Middleware Pipeline
+// Global Middleware Pipeline (executed before body parsing to guard against malformed/oversized floods)
 app.use(rateLimitMiddleware);
 app.use(versionGateMiddleware);
+app.use(express.json({ limit: '10kb' }));
 
 // API Route Registration
 app.use('/api/vault', vaultRouter);

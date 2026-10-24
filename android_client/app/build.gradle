@@ -76,7 +76,7 @@ tasks.register('generateNativeKeys', Exec) {
 
     boolean isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
     if (isWindows) {
-        commandLine 'cmd', '/c', 'where py >nul 2>nul && py -3 generate_keys.py || python generate_keys.py'
+        commandLine 'cmd', '/c', 'py -3 -V >nul 2>nul && py -3 generate_keys.py || python generate_keys.py'
     } else {
         commandLine 'bash', '-c', 'command -v python3 >/dev/null 2>&1 && python3 generate_keys.py || python generate_keys.py'
     }

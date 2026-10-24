@@ -6,7 +6,7 @@ CTF Application is an educational mobile security challenge. It is designed to b
 
 ## Secret Management
 
-This repository is open source, including the native C++ layer and backend server code. Cryptographic secrets (the E2EE key, backdoor authorization token, session signing key, and stage-2 multiplier) are kept out of version control; see Incident History for earlier exposure and remediation. They are:
+This repository is open source, including the native C++ layer and backend server code. Cryptographic secrets (the E2EE key, maintenance authorization token, session signing key, and stage-2 verification secrets) are kept out of version control; see Incident History for earlier exposure and remediation. They are:
 
 - Generated locally from a git-ignored configuration file (`native-secrets.properties`) for the Android client, executed automatically during the Gradle pre-build lifecycle.
 - Injected via environment variables for the backend server (`E2EE_KEY`, `BACKDOOR_CODE`, `SECRET_MULTIPLIER`, `JWT_SECRET`).
@@ -19,7 +19,7 @@ Stage 1 session state is carried in signed, stateless JWTs. To ensure fault tole
 
 ## Incident History
 
-This project has undergone credential rotation following past exposure of secrets in earlier commits (native encryption key, backdoor code, signing keystore, stage-2 multiplier). All affected values have been rotated and are no longer valid. See the release notes for version-specific details.
+This project has undergone credential rotation following past exposure of secrets in earlier commits (native encryption key, authorization token, signing keystore, stage-2 verification secrets). All affected values have been rotated and are no longer valid. See the release notes for version-specific details.
 
 ## Reporting a Vulnerability
 
