@@ -4,55 +4,70 @@
 
 ---
 
-Tantangan praktis *reverse engineering* dan keamanan jaringan Android yang mencakup analisis statis, instrumentasi dinamis, serta intersepsi protokol.
-
-## Gambaran Proyek
-
-CTF ini menyimulasikan skenario penilaian keamanan aplikasi seluler (*mobile application security assessment*), menguji keterampilan dalam analisis statis, instrumentasi dinamis, dan intersepsi protokol jaringan. Aplikasi ini menerapkan arsitektur verifikasi sisi server (*server-side verification*) di mana flag hanya akan dirilis setelah seluruh rangkaian eksploitasi (*exploit chain*) diselesaikan dengan benar.
+Tantangan keamanan seluler praktis yang menyimulasikan asesmen keamanan aplikasi Android. Uji keahlian Anda dalam *reverse engineering*, inspeksi *runtime* dinamis, analisis kriptografi, dan manipulasi protokol jaringan.
 
 ## Arsitektur
 
-- **Klien (Android):** Java dengan komponen native C++ (JNI) (Android 8.0+ / API 26+, menargetkan API 34), diperkuat dengan *timing obfuscation*, enkoding kunci sekunder, serta deteksi *anti-hooking* pasif.
-- **Security Engine:** Konstanta native diobfuskasi saat waktu kompilasi (*compile-time*) untuk menahan analisis string statis sederhana.
-- **Backend (Serverless):** REST API Node.js yang di-deploy pada Vercel Edge Network. Menegakkan versi minimum aplikasi klien dan menolak build yang usang.
-- **Kriptografi:** Enkripsi *end-to-end* AES-256-GCM untuk transmisi payload antara klien dan server.
+- **Klien (Android):** Java dengan *engine* native C++ (JNI) (Android 8.0+ / API 26+, menargetkan API 34), diperkuat dengan obfuskasi simbol *compile-time*, *timing noise* eksekusi, serta deteksi *tracing* pasif.
+- **Backend (Serverless):** REST API Node.js modular di Vercel, didukung Upstash Redis untuk *state* terdistribusi, *pipeline* verifikasi Lua atomik, token sesi JWT *stateless*, dan *version gating*.
+- **Kriptografi:** Enkripsi *payload* AES-256-GCM yang melindungi komunikasi klien-server.
 
 ## Alat & Prasyarat
 
-Alat yang direkomendasikan untuk tantangan ini:
-
-- **Dekomplikasi & Analisis Statis:** JADX, Apktool, atau Ghidra.
+- **Analisis Statis:** JADX, Apktool, atau Ghidra.
 - **Instrumentasi Dinamis:** Frida atau Objection.
-- **Intersepsi & Proksi Trafik:** Burp Suite atau OWASP ZAP. Perlu diperhatikan bahwa Android modern tidak mempercayai sertifikat CA yang dipasang pengguna secara default, sehingga intersepsi HTTPS memerlukan konfigurasi tambahan.
+- **Intersepsi Trafik:** Burp Suite atau OWASP ZAP *(catatan: sertifikat CA pengguna memerlukan konfigurasi keamanan jaringan atau bypass runtime pada Android modern)*.
 
 ## Spesifikasi Tantangan
 
-Tujuannya adalah mengekstrak flag yang valid dari server jarak jauh. Penilaian terdiri dari tiga tahap berurutan.
+Tujuannya adalah menembus *pipeline* verifikasi dan mengklaim flag dari server jarak jauh melalui tiga tahap berurutan.
 
 ### Tahap 1: Ekstraksi Kriptografi
 
-Klien Android mengirimkan payload terenkripsi ke backend. Anda perlu mengidentifikasi apa yang dibutuhkan klien agar pertukaran data ini berhasil.
+Klien mengirimkan *envelope* terenkripsi ke backend. Tentukan apa yang diharapkan server untuk memvalidasi *handshake* awal ini.
 
-*Catatan: Investigasi terhadap layer native terkompilasi (`libnative-crypto.so`) diperlukan. Tidak semua yang Anda temukan di sana adalah apa yang terlihat.*
+<details>
+<summary>💡 Petunjuk untuk Tahap 1</summary>
+
+- **Orientasi:** Lihatlah ke balik lapisan *runtime* aplikasi. Jantung sesungguhnya berkomunikasi dalam bahasa tingkat rendah di mana batas logika berjalan.
+- **Metode:** Apa yang tertulis di permukaan biner tidak selalu menjadi apa yang dieksekusi mesin. Memori saat *runtime* mengenali apa yang salah dibaca oleh analisis statis.
+- **Bukti:** Penjaga gerbang tidak sekadar menolak atau menerima; dengarkan bagaimana ia menolak Anda. Saku yang kosong memantulkan gema yang berbeda dari kunci palsu.
+</details>
 
 ### Tahap 2: Manipulasi Protokol
 
-Menyelesaikan Tahap 1 akan membuka langkah validasi di sisi server yang melibatkan nilai yang belum Anda miliki.
+Lolos dari gerbang pertama memberikan akses ke evaluasi sisi server yang membutuhkan data di luar alur default.
+
+<details>
+<summary>💡 Petunjuk untuk Tahap 2</summary>
+
+- **Orientasi:** Lolos dari ujian pertama bukan hanya membuka jalan, tetapi membawa pesan. Jangan buang amplop yang mengantarkan Anda masuk.
+- **Metode:** Otoritas memberikan stempel bertanda tangan bersamaan dengan teka-teki terselubung. Amati metadata di sekitar pemberian tersebut—jawabannya menjembatani apa yang diberikan dan apa yang diminta.
+- **Bukti:** Waktu tidak berhenti, dan keseimbangan menuntut perhitungan. Selesaikan persamaan tersebut sebelum kesabaran sang otoritas habis.
+</details>
 
 ### Tahap 3: Verifikasi Akhir
 
-Kirimkan flag yang berhasil diekstrak melalui aplikasi Android untuk menyelesaikan asesmen dan membuka layar Hall of Fame.
+Kirimkan flag yang berhasil diklaim untuk menyelesaikan asesmen dan membuka Hall of Fame.
+
+<details>
+<summary>💡 Petunjuk untuk Tahap 3</summary>
+
+- **Orientasi:** Tanda kemenangan ini tidak dapat dipindahtangankan; ia hanya mengenali sesi yang memperjuangkannya.
+- **Metode:** Anda dapat mempersembahkan bukti melalui terminal antarmuka, atau berbicara langsung ke pintu verifikasi terakhir.
+- **Bukti:** Penjaga gerbang hanya menerima penjelajah dengan identitas terkini. Pastikan transmisi Anda mencerminkan era yang sedang berjalan.
+</details>
 
 ## Memulai
 
-1. Unduh file `.apk` terbaru dari rilis repositori. Build yang usang dapat ditolak oleh server.
-2. Pasang pada emulator Android atau perangkat uji fisik.
-3. Konfigurasikan lingkungan proksi Anda jika menggunakan Burp Suite/ZAP (lihat catatan di atas mengenai intersepsi HTTPS).
-4. Mulai analisis Anda.
+1. Unduh `.apk` terbaru dari [Rilis](../../releases). Build yang usang akan ditolak dengan respons `HTTP 426`.
+2. Pasang pada emulator atau perangkat uji fisik (Android 8.0+).
+3. Siapkan proksi intersepsi Anda dan mulai *reverse engineering*.
+
+Untuk catatan rilis dan riwayat pembaruan lengkap, lihat [CHANGELOG.md](CHANGELOG.md).
 
 ### Membangun dari Kode Sumber (Opsional)
 
-Jika Anda ingin meng-host atau memodifikasi tantangan ini secara mandiri:
 ```bash
 # 1. Siapkan konfigurasi rahasia native lokal
 cp android_client/app/src/main/cpp/native-secrets.properties.example android_client/app/src/main/cpp/native-secrets.properties
@@ -62,33 +77,26 @@ cd android_client
 ./gradlew assembleRelease      # Linux / macOS
 gradlew.bat assembleRelease    # Windows
 ```
-Task pembuat kunci native otomatis berjalan sebelum kompilasi. APK yang dihasilkan akan tersedia di `android_client/app/build/outputs/apk/release/app-release.apk`.
+File APK hasil kompilasi akan berada di `android_client/app/build/outputs/apk/release/app-release.apk`.
 
-## Privasi & Pengelolaan Data
+## Privasi & Pencegahan Penyalahgunaan
 
-Proyek ini adalah tantangan keamanan mandiri dan tidak mengumpulkan informasi pribadi selain penanganan alamat IP yang dijelaskan di bawah. Sebuah penghitung anonim jumlah penyelesaian juga disimpan; data ini tidak memuat informasi pribadi apa pun.
-
-- **Alamat IP:** Backend memproses alamat IP klien sementara secara eksklusif untuk *rate limiting* dan pencegahan penyalahgunaan. Data disimpan dalam cache Redis sementara dan kedaluwarsa secara otomatis (maksimal 30 menit bagi klien yang terkena pembatasan).
-- **Trafik Jaringan:** Seluruh komunikasi ditransmisikan melalui HTTPS. Hanya token tantangan dan flag yang dievaluasi; peserta tidak boleh memasukkan kredensial pribadi yang sensitif.
-- **Log Infrastruktur:** API dihosting di Vercel Edge Network, yang mungkin menyimpan log transit HTTP standar sesuai dengan kebijakan infrastruktur Vercel.
+Tantangan ini tidak mengumpulkan data pribadi.
+- **Rate Limiting:** Alamat IP klien disimpan sementara di Redis dengan kedaluwarsa otomatis (hingga 30 menit bagi klien yang melanggar batas) semata-mata untuk mitigasi *brute-force*.
+- **Penghitung Penyelesaian:** Penghitung anonim global mencatat jumlah tantangan yang selesai tanpa menyimpan identitas pengguna.
+- **Trafik:** Hanya payload tantangan yang dievaluasi. Jangan mengirimkan kredensial pribadi.
 
 ## Verifikasi Keaslian Rilis
 
-APK rilis resmi (v1.4.0 dan seterusnya) ditandatangani menggunakan kunci penandatanganan pengembang khusus. Anda dapat memverifikasi keaslian dan integritas berkas secara independen sebelum memasangnya:
+APK rilis resmi ditandatangani menggunakan *keystore* pengembang khusus:
 
-### 1. Sidik Jari Sertifikat Penandatangan (Keaslian / Authenticity)
-Pastikan bahwa APK benar-benar dibuat dan ditandatangani oleh pembuat repositori:
-```
-SHA-256: 11919c358daf9c9f56da77617284fb99cc402fc789242fe8c75c674a3c551a62
-```
-Untuk memverifikasi menggunakan build-tools Android SDK:
-```bash
-apksigner verify --print-certs app-release.apk
-```
-
-### 2. Checksum Berkas (Integritas / Integrity)
-Untuk memastikan file APK yang diunduh tidak rusak saat proses transmisi, cocokkan hash SHA-256 berkas dengan *asset digest* yang dipublikasikan pada halaman [GitHub Releases](../../releases).
+- **Sidik Jari SHA-256:** `11919c358daf9c9f56da77617284fb99cc402fc789242fe8c75c674a3c551a62`
+- Verifikasi menggunakan `apksigner`:
+  ```bash
+  apksigner verify --print-certs app-release.apk
+  ```
+- Cocokkan *digest* SHA-256 berkas dengan *checksum* yang dipublikasikan pada halaman [GitHub Releases](../../releases).
 
 ---
 
-*Disclaimer: Repositori ini ditujukan secara ketat untuk tujuan edukasi, riset keamanan, dan praktik peretasan etis. Serangan otomatis yang tidak sah, termasuk Denial of Service (DoS) atau brute-forcing terhadap infrastruktur backend yang aktif, dilarang keras.*
+*Disclaimer: Repositori ini ditujukan semata-mata untuk riset keamanan edukatif dan latihan peretasan etis. Serangan DoS otomatis atau brute-force terhadap infrastruktur live dilarang keras.*
