@@ -10,6 +10,8 @@ import java.io.File;
  */
 public class SecurityChecks {
 
+    private static Boolean cachedCompromised = null;
+
     /**
      * Inspects build properties and hardware signatures for Android emulator artifacts.
      *
@@ -40,7 +42,17 @@ public class SecurityChecks {
      * @return true if su binary exists in standard filesystem paths
      */
     public static boolean isRooted() {
-        String[] paths = { "/system/app/Superuser.apk", "/sbin/su", "/system/bin/su", "/system/xbin/su", "/data/local/xbin/su", "/data/local/bin/su", "/system/sd/xbin/su", "/system/bin/failsafe/su", "/data/local/su" };
+        String[] paths = {
+            "/system/app/Superuser.apk",
+            "/sbin/su",
+            "/system/bin/su",
+            "/system/xbin/su",
+            "/data/local/xbin/su",
+            "/data/local/bin/su",
+            "/system/sd/xbin/su",
+            "/system/bin/failsafe/su",
+            "/data/local/su"
+        };
         for (String path : paths) {
             if (new File(path).exists()) return true;
         }
@@ -48,16 +60,26 @@ public class SecurityChecks {
     }
 
     /**
-     * Returns a summarized log string of the current environment state.
+     * Evaluates environment integrity once and caches the result.
      *
-     * @return Formatted status log for the terminal
+     * @return true if running under emulator or rooted environment
+     */
+    public static synchronized boolean isCompromised() {
+        if (cachedCompromised == null) {
+            cachedCompromised = isEmulator() || isRooted();
+        }
+        return cachedCompromised;
+    }
+
+    /**
+     * Returns a summarized status log for terminal diagnostic output.
+     *
+     * @return Formatted status string
      */
     public static String getEnvironmentSummary() {
-        boolean emulator = isEmulator();
-        boolean rooted = isRooted();
-        if (emulator || rooted) {
-            return "> [i] Non-standard runtime environment detected";
+        if (isCompromised()) {
+            return "> [SYS] Environment: Non-standard runtime detected (Sandbox/Root).";
         }
-        return "> [i] Runtime environment nominal";
+        return "> [SYS] Environment: Standard hardware runtime verified.";
     }
 }

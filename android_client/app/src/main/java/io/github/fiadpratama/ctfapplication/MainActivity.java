@@ -84,7 +84,20 @@ public class MainActivity extends AppCompatActivity {
 
         setupListeners();
 
-        terminalLogger.log(getString(R.string.log_system_idle));
+        initTerminalDiagnostics();
+    }
+
+    /**
+     * Executes initial environment security diagnostics once during application startup.
+     */
+    private void initTerminalDiagnostics() {
+        terminalLogger.log(getString(R.string.log_sys_init));
+        if (SecurityChecks.isCompromised()) {
+            terminalLogger.log(getString(R.string.log_env_warning));
+        } else {
+            terminalLogger.log(getString(R.string.log_env_nominal));
+        }
+        terminalLogger.log(getString(R.string.log_sys_idle));
     }
 
     @Override
@@ -156,7 +169,7 @@ public class MainActivity extends AppCompatActivity {
                 hideKeyboard();
                 if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 50);
                 setButtonsState(false);
-                terminalLogger.log(getString(R.string.log_initiating_connection));
+                terminalLogger.log(getString(R.string.log_handshake_start));
                 unlockVault();
             }
         });
@@ -169,7 +182,7 @@ public class MainActivity extends AppCompatActivity {
                 String flag = binding.flagInput.getText().toString().trim();
                 if (flag.isEmpty()) return;
                 setButtonsState(false);
-                terminalLogger.log(getString(R.string.log_verifying_flag));
+                terminalLogger.log(getString(R.string.log_flag_submitting));
                 verifyFlag(flag);
             }
         });
@@ -185,12 +198,6 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 try {
-                    handler.post(new Runnable() { @Override public void run() { if (isActivityAlive()) terminalLogger.log(SecurityChecks.getEnvironmentSummary()); }});
-                    Thread.sleep(300);
-
-                    handler.post(new Runnable() { @Override public void run() { if (isActivityAlive()) terminalLogger.log(getString(R.string.log_generating_token)); }});
-                    Thread.sleep(400);
-
                     String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
                     String hash = CryptoHelper.computeHandshakeSignature(timestamp);
 
@@ -198,20 +205,17 @@ public class MainActivity extends AppCompatActivity {
                     payloadJson.put("timestamp", timestamp);
                     payloadJson.put("hash", hash);
 
-                    handler.post(new Runnable() { @Override public void run() { if (isActivityAlive()) terminalLogger.log(getString(R.string.log_loading_native_lib)); }});
-                    Thread.sleep(400);
-
                     byte[] keyBytes = getE2EKey().getBytes(StandardCharsets.UTF_8);
-
-                    handler.post(new Runnable() { @Override public void run() { if (isActivityAlive()) terminalLogger.log(getString(R.string.log_extracting_key)); }});
-                    Thread.sleep(400);
-
-                    handler.post(new Runnable() { @Override public void run() { if (isActivityAlive()) terminalLogger.log(getString(R.string.log_encrypting_payload)); }});
-                    Thread.sleep(400);
-
                     JSONObject encryptedPayload = CryptoHelper.encryptPayload(payloadJson, keyBytes);
 
-                    handler.post(new Runnable() { @Override public void run() { if (isActivityAlive()) terminalLogger.log(getString(R.string.log_transmitting)); }});
+                    handler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (isActivityAlive()) {
+                                terminalLogger.log(getString(R.string.log_handshake_transmit));
+                            }
+                        }
+                    });
 
                     VaultApiClient.postJson(VaultApiClient.STAGE1_URL, encryptedPayload, new VaultApiClient.ApiCallback() {
                         @Override
