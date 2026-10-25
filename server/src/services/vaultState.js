@@ -1,16 +1,17 @@
 /**
- * Vault State & Atomic Operations Service
+ * Distributed vault state and atomic transaction service.
  * 
- * Encapsulates Redis Lua scripts and state transitions for idempotent flag
- * issuance, session collision handling, and atomic solve claims.
+ * Coordinates flag issuance, session binding, and solve redemption using
+ * atomic Redis Lua scripts to eliminate race conditions and double-claims.
  */
 const redis = require('./redis');
 const { createFlagString } = require('./flags');
 
 /**
- * Atomic Lua script for Stage 2 flag issuance with best-effort rollback protection.
+ * Atomic Lua script for Stage 2 flag issuance with rollback protection.
  * KEYS: [1] session token (jti:<id>), [2] flag record (flag:<str>)
- * ARGV: [1] candidate flag, [2] session TTL, [3] flag TTL
+ * ARGV: [1] candidate flag, [2] session TTL (seconds), [3] flag TTL (seconds)
+ * Returns: candidateFlag on success, existing flag if idempotent replay, or negative error code
  */
 const ISSUE_FLAG_LUA = `
 local jtiTtl = tonumber(ARGV[2])
@@ -52,8 +53,9 @@ return candidateFlag
 `;
 
 /**
- * Atomic Lua script to claim a solve flag with best-effort rollback on write error.
+ * Atomic Lua script to claim a solve flag and increment global metrics with write rollback.
  * KEYS: [1] flag record (flag:<str>), [2] global solves counter (stats:solves)
+ * Returns: solveNumber on success, existing solveNumber if idempotent replay, or negative error code
  */
 const CLAIM_FLAG_LUA = `
 local status = redis.call('GET', KEYS[1])

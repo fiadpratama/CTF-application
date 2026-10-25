@@ -1,13 +1,13 @@
 /**
- * Flag Generation Service
+ * Cryptographic flag generation service.
  * 
- * Generates cryptographically secure candidate solve flags in FLAG{...} format.
+ * Generates high-entropy candidate challenge flags in standard FLAG{...} format.
  */
 const crypto = require('crypto');
 
 /**
- * Creates a cryptographically random candidate flag string in FLAG{...} format.
- * Format: 38 characters total ('FLAG{' + 32 hex chars + '}').
+ * Creates a cryptographically random candidate flag string in FLAG{<32-hex>} format.
+ * Total length is 38 characters.
  * 
  * @returns {string} 38-character flag string
  */

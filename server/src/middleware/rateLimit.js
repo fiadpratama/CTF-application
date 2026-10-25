@@ -1,19 +1,19 @@
 /**
- * Rate Limiting & Abuse Prevention Middleware
+ * Distributed rate limiting and abuse prevention middleware.
  * 
- * Enforces per-IP request thresholds, anomaly burst detection, and progressive
- * ban escalation (30 min -> 1 hour -> 3 hours) using an atomic Redis Lua script.
+ * Implements a dual-sliding-window rate evaluator (sustained quota + rapid burst anomaly detection)
+ * with progressive ban escalation (30 min -> 1 hour -> 3 hours) using an atomic Redis Lua script.
  */
 const redis = require('../services/redis');
 
 const WINDOW_SECONDS = 60;
 const MAX_REQUESTS = 30;
 const BURST_WINDOW_SECONDS = 10;
-const MAX_BURST_REQUESTS = 10;
-const VIOLATION_TTL_SECONDS = 86400; // 24 hours retention for repeat offenders
+const MAX_BURST_REQUESTS = 15;
+const VIOLATION_TTL_SECONDS = 86400; // 24-hour sliding retention for repeat violation tracking
 
 /**
- * Atomic Lua script for per-IP rate limiting, anomaly burst detection, and progressive ban escalation.
+ * Atomic Lua script for per-IP sliding-window rate tracking and escalating ban enforcement.
  *
  * KEYS: [1] ban record (banned:<ip>), [2] rate counter (ratelimit:<ip>),
  *       [3] violation counter (violations:<ip>), [4] burst counter (burst:<ip>)

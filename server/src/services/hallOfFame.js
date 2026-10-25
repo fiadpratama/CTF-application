@@ -1,11 +1,11 @@
 /**
- * Hall of Fame Debriefing Service
+ * Hall of Fame debriefing service.
  * 
- * Constructs the final victory debriefing message displayed upon challenge completion.
+ * Constructs the structured victory debriefing narrative and solve telemetry.
  */
 
 /**
- * Builds the structured Hall of Fame completion message.
+ * Compiles the structured victory debriefing message displayed on the client.
  * 
  * @param {number|null} solveNumber - Global solve index counter
  * @param {string} flag - Verified flag string

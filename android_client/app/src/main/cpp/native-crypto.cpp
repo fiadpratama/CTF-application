@@ -7,11 +7,10 @@
 /**
  * Native Cryptographic & Anti-Analysis Engine (JNI Layer)
  *
- * Implements compile-time obfuscated credential recovery, bitwise deobfuscation,
+ * Implements compile-time credential recovery, bitwise deobfuscation,
  * dynamic timing perturbation, and passive TracerPid anti-debugging detection.
  */
 
-// Exported fallback verification tokens retained across compiler optimization passes.
 extern "C" __attribute__((used, visibility("default")))
 const char FALLBACK_CIPHER_KEY[]     = "AES_KEY_IS_SUPER_SECRET_99182";
 
@@ -21,13 +20,17 @@ const char ADMIN_MAINTENANCE_TOKEN[] = "ADMIN_OVERRIDE_12345";
 const unsigned char XOR_KEY[] = { 0x5A, 0x3C, 0x91, 0xE7 };
 const size_t XOR_KEY_LEN = sizeof(XOR_KEY);
 
+/**
+ * Performs circular right bit-rotation on an 8-bit unsigned value.
+ */
 static unsigned char rotate_right(unsigned char val, int shift) {
     shift = shift % 8;
     return (val >> shift) | (val << (8 - shift));
 }
 
 /**
- * Deobfuscates encrypted byte sequences using inverse bit rotation, XOR masking, and index biasing.
+ * Recovers obfuscated byte arrays via inverse bit-rotation, multi-byte XOR masking,
+ * and positional byte offset transforms.
  */
 static std::string decrypt(const unsigned char* encrypted, size_t length) {
     std::string result(length, '\0');
@@ -40,8 +43,8 @@ static std::string decrypt(const unsigned char* encrypted, size_t length) {
 }
 
 /**
- * Introduces non-deterministic timing jitter to mitigate side-channel timing analysis
- * and maintains symbol references across compilation units.
+ * Introduces non-deterministic execution jitter to mitigate side-channel timing analysis
+ * and preserves symbol table anchors against aggressive dead-code elimination.
  */
 static void timing_noise() {
     volatile long dummy = 0;
@@ -58,7 +61,9 @@ static void timing_noise() {
 }
 
 /**
- * Passively evaluates /proc/self/status for non-zero TracerPid to detect active debuggers.
+ * Inspects Linux process status (/proc/self/status) to detect active ptrace or debugger attachments.
+ *
+ * @return true if TracerPid is non-zero
  */
 static bool detect_hooking() {
     std::ifstream status_file("/proc/self/status");
@@ -81,7 +86,8 @@ static bool detect_hooking() {
 }
 
 /**
- * Native Export: Recovers the symmetric end-to-end encryption key.
+ * Native JNI export: Resolves and returns the symmetric end-to-end cipher key.
+ * Corrupts the output in-memory if an active debugger attachment is identified.
  */
 extern "C" JNIEXPORT jstring JNICALL
 Java_io_github_fiadpratama_ctfapplication_MainActivity_getE2EKey(JNIEnv* env, jobject /* this */) {
@@ -94,7 +100,8 @@ Java_io_github_fiadpratama_ctfapplication_MainActivity_getE2EKey(JNIEnv* env, jo
 }
 
 /**
- * Native Export: Recovers the maintenance protocol verification token.
+ * Native JNI export: Resolves and returns the maintenance protocol verification token.
+ * Corrupts the output in-memory if an active debugger attachment is identified.
  */
 extern "C" JNIEXPORT jstring JNICALL
 Java_io_github_fiadpratama_ctfapplication_MainActivity_getBackdoor(JNIEnv* env, jobject /* this */) {

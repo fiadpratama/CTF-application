@@ -6,9 +6,15 @@ import android.app.Activity;
 import android.media.MediaPlayer;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.animation.LinearInterpolator;
+import androidx.core.graphics.Insets;
+import androidx.core.view.OnApplyWindowInsetsListener;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.core.widget.NestedScrollView;
 
 import io.github.fiadpratama.ctfapplication.R;
@@ -19,7 +25,7 @@ import io.github.fiadpratama.ctfapplication.databinding.ActivityMainBinding;
  *
  * Coordinates the full-screen debriefing sequence, background music playback,
  * smooth auto-scrolling credits, audio fade-out, 15-second skip button reveal,
- * and return transitions.
+ * lifecycle-aware pause/resume synchronization, and return transitions.
  */
 public class HonorScreenManager {
 
@@ -46,6 +52,13 @@ public class HonorScreenManager {
     private ObjectAnimator scrollAnimator;
     private ValueAnimator audioFadeAnimator;
     private boolean isActive = false;
+    private boolean isTransitioning = false;
+    private boolean isPaused = false;
+
+    private long lastResumeRealtimeMs = 0L;
+    private long remainingScrollDelayMs = 0L;
+    private long remainingSkipDelayMs = 0L;
+    private long remainingTransitionMs = 0L;
 
     private Runnable scrollRunnable;
     private Runnable transitionRunnable;
@@ -55,10 +68,31 @@ public class HonorScreenManager {
         this(activity, binding, null);
     }
 
-    public HonorScreenManager(Activity activity, ActivityMainBinding binding, Runnable onSkipAction) {
+    public HonorScreenManager(final Activity activity, ActivityMainBinding binding, Runnable onSkipAction) {
         this.activity = activity;
         this.binding = binding;
         this.onSkipAction = onSkipAction;
+
+        if (this.binding != null && this.activity != null) {
+            ViewCompat.setOnApplyWindowInsetsListener(this.binding.honorSkipButton, new OnApplyWindowInsetsListener() {
+                @Override
+                public WindowInsetsCompat onApplyWindowInsets(View v, WindowInsetsCompat insets) {
+                    Insets cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout());
+                    float density = activity.getResources().getDisplayMetrics().density;
+                    int baseMargin = (int) (16 * density);
+                    int topMargin = Math.max(baseMargin, cutout.top + (int) (8 * density));
+                    int endMargin = Math.max(baseMargin, cutout.right + baseMargin);
+                    ViewGroup.LayoutParams params = v.getLayoutParams();
+                    if (params instanceof ViewGroup.MarginLayoutParams) {
+                        ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) params;
+                        lp.topMargin = topMargin;
+                        lp.setMarginEnd(endMargin);
+                        v.setLayoutParams(lp);
+                    }
+                    return insets;
+                }
+            });
+        }
     }
 
     /**
@@ -71,6 +105,33 @@ public class HonorScreenManager {
     }
 
     /**
+     * Resets the visual, textual, and scroll state of the honor screen components
+     * to a clean baseline to prevent flickering or resuming previous playback positions.
+     */
+    private void resetHonorViews() {
+        if (binding == null) return;
+        binding.honorLayout.animate().cancel();
+        binding.honorSkipButton.animate().cancel();
+        binding.honorLayout.setAlpha(0.0f);
+        binding.honorSkipButton.setAlpha(0.0f);
+        binding.honorSkipButton.setVisibility(View.GONE);
+        binding.honorSkipButton.setEnabled(false);
+        binding.honorText.setText("");
+        binding.honorScroll.stopNestedScroll();
+        binding.honorScroll.scrollTo(0, 0);
+        binding.honorScroll.setScrollY(0);
+        binding.honorScroll.post(new Runnable() {
+            @Override
+            public void run() {
+                if (isAlive() && binding != null) {
+                    binding.honorScroll.scrollTo(0, 0);
+                    binding.honorScroll.setScrollY(0);
+                }
+            }
+        });
+    }
+
+    /**
      * Launches the full cinematic sequence: cross-fades layouts, starts BGM,
      * triggers auto-scroll, fades out audio, and restores default UI.
      *
@@ -80,7 +141,21 @@ public class HonorScreenManager {
     public void start(String debriefMessage, final OnCinematicFinishedListener onFinished) {
         if (!isAlive()) return;
 
+        cancelTimeline();
+        if (audioFadeAnimator != null) {
+            audioFadeAnimator.cancel();
+            audioFadeAnimator = null;
+        }
+        releaseMediaPlayer();
+
         isActive = true;
+        isTransitioning = false;
+        isPaused = false;
+        lastResumeRealtimeMs = SystemClock.elapsedRealtime();
+        remainingScrollDelayMs = SCROLL_START_DELAY_MS;
+        remainingSkipDelayMs = SKIP_APPEAR_DELAY_MS;
+        remainingTransitionMs = TRANSITION_TOTAL_MS;
+
         activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
             activity.getWindow().getAttributes().layoutInDisplayCutoutMode =
@@ -88,20 +163,37 @@ public class HonorScreenManager {
         }
         applyImmersiveMode();
 
-        binding.mainLayout.setVisibility(View.GONE);
-        binding.honorLayout.setVisibility(View.VISIBLE);
-        binding.honorText.setText(debriefMessage);
-
+        binding.honorLayout.animate().cancel();
+        binding.honorSkipButton.animate().cancel();
         binding.honorLayout.setAlpha(0.0f);
-        binding.honorLayout.animate().alpha(1.0f).setDuration(FADE_STANDARD_MS).start();
-
         binding.honorSkipButton.setVisibility(View.GONE);
         binding.honorSkipButton.setAlpha(0.0f);
         binding.honorSkipButton.setEnabled(true);
+        binding.honorText.setText(debriefMessage);
+
+        binding.honorScroll.stopNestedScroll();
+        binding.honorScroll.scrollTo(0, 0);
+        binding.honorScroll.setScrollY(0);
+        binding.honorScroll.post(new Runnable() {
+            @Override
+            public void run() {
+                if (isAlive() && binding != null) {
+                    binding.honorScroll.scrollTo(0, 0);
+                    binding.honorScroll.setScrollY(0);
+                }
+            }
+        });
+
+        binding.mainLayout.setVisibility(View.GONE);
+        binding.honorLayout.setVisibility(View.VISIBLE);
+        ViewCompat.requestApplyInsets(binding.honorSkipButton);
+
+        binding.honorLayout.animate().alpha(1.0f).setDuration(FADE_STANDARD_MS).start();
+
         binding.honorSkipButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (!isActive) return;
+                if (!isActive || isTransitioning) return;
                 if (onSkipAction != null) {
                     onSkipAction.run();
                 }
@@ -114,7 +206,9 @@ public class HonorScreenManager {
         scrollRunnable = new Runnable() {
             @Override
             public void run() {
-                if (!isAlive()) return;
+                scrollRunnable = null;
+                remainingScrollDelayMs = 0L;
+                if (!isAlive() || !isActive || isTransitioning) return;
                 NestedScrollView scroll = binding.honorScroll;
                 View content = scroll.getChildAt(0);
                 if (content != null) {
@@ -124,31 +218,39 @@ public class HonorScreenManager {
                         scrollAnimator.setDuration(SCROLL_DURATION_MS);
                         scrollAnimator.setInterpolator(new LinearInterpolator());
                         scrollAnimator.start();
+                        if (isPaused) {
+                            scrollAnimator.pause();
+                        }
                     }
                 }
             }
         };
-        handler.postDelayed(scrollRunnable, SCROLL_START_DELAY_MS);
+        handler.postDelayed(scrollRunnable, remainingScrollDelayMs);
 
         skipRevealRunnable = new Runnable() {
             @Override
             public void run() {
-                if (!isAlive() || !isActive) return;
+                skipRevealRunnable = null;
+                remainingSkipDelayMs = 0L;
+                if (!isAlive() || !isActive || isTransitioning) return;
                 binding.honorSkipButton.setVisibility(View.VISIBLE);
                 binding.honorSkipButton.setAlpha(0.0f);
                 binding.honorSkipButton.animate().alpha(1.0f).setDuration(600).start();
             }
         };
-        handler.postDelayed(skipRevealRunnable, SKIP_APPEAR_DELAY_MS);
+        handler.postDelayed(skipRevealRunnable, remainingSkipDelayMs);
 
         transitionRunnable = new Runnable() {
             @Override
             public void run() {
-                if (!isAlive()) return;
+                transitionRunnable = null;
+                remainingTransitionMs = 0L;
+                if (!isAlive() || !isActive || isTransitioning) return;
+                cancelTimeline();
                 fadeAudioAndEnd(FADE_STANDARD_MS, onFinished);
             }
         };
-        handler.postDelayed(transitionRunnable, TRANSITION_TOTAL_MS);
+        handler.postDelayed(transitionRunnable, remainingTransitionMs);
 
         try {
             mediaPlayer = MediaPlayer.create(activity, R.raw.bgm);
@@ -177,6 +279,9 @@ public class HonorScreenManager {
             handler.removeCallbacks(skipRevealRunnable);
             skipRevealRunnable = null;
         }
+        remainingScrollDelayMs = 0L;
+        remainingSkipDelayMs = 0L;
+        remainingTransitionMs = 0L;
         if (scrollAnimator != null) {
             scrollAnimator.cancel();
             scrollAnimator = null;
@@ -190,6 +295,16 @@ public class HonorScreenManager {
      * @param onFinished Callback invoked when layout restoration completes
      */
     private void fadeAudioAndEnd(long fadeDurationMs, final OnCinematicFinishedListener onFinished) {
+        if (isTransitioning) return;
+        isTransitioning = true;
+        binding.honorSkipButton.setEnabled(false);
+
+        cancelTimeline();
+        if (audioFadeAnimator != null) {
+            audioFadeAnimator.cancel();
+            audioFadeAnimator = null;
+        }
+
         if (mediaPlayer != null) {
             audioFadeAnimator = ValueAnimator.ofFloat(1.0f, 0.0f);
             audioFadeAnimator.setDuration(fadeDurationMs);
@@ -212,12 +327,14 @@ public class HonorScreenManager {
             public void run() {
                 if (!isAlive()) return;
                 isActive = false;
+                isTransitioning = false;
+                isPaused = false;
                 activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                 releaseMediaPlayer();
 
-                binding.honorSkipButton.setVisibility(View.GONE);
+                resetHonorViews();
                 binding.honorLayout.setVisibility(View.GONE);
-                binding.honorLayout.setAlpha(1.0f);
+
                 binding.mainLayout.setVisibility(View.VISIBLE);
                 binding.flagInput.setText("");
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
@@ -233,17 +350,71 @@ public class HonorScreenManager {
         }).start();
     }
 
+    /**
+     * Suspends background music, scrolling animation, and timeline countdowns when the Activity pauses.
+     */
     public void onPause() {
+        if (!isActive || isPaused) return;
+        isPaused = true;
+
+        long elapsed = Math.max(0L, SystemClock.elapsedRealtime() - lastResumeRealtimeMs);
+
         if (mediaPlayer != null && mediaPlayer.isPlaying()) {
             mediaPlayer.pause();
         }
+        if (scrollAnimator != null && scrollAnimator.isStarted()) {
+            scrollAnimator.pause();
+        }
+        if (audioFadeAnimator != null && audioFadeAnimator.isStarted()) {
+            audioFadeAnimator.pause();
+        }
+
+        if (!isTransitioning) {
+            if (scrollRunnable != null) {
+                handler.removeCallbacks(scrollRunnable);
+                remainingScrollDelayMs = Math.max(1L, remainingScrollDelayMs - elapsed);
+            }
+            if (skipRevealRunnable != null) {
+                handler.removeCallbacks(skipRevealRunnable);
+                remainingSkipDelayMs = Math.max(1L, remainingSkipDelayMs - elapsed);
+            }
+            if (transitionRunnable != null) {
+                handler.removeCallbacks(transitionRunnable);
+                remainingTransitionMs = Math.max(1L, remainingTransitionMs - elapsed);
+            }
+        }
     }
 
+    /**
+     * Resumes immersive mode, background music, scrolling animation, and remaining timeline countdowns.
+     */
     public void onResume() {
-        if (isActive) {
-            applyImmersiveMode();
-            if (mediaPlayer != null && !mediaPlayer.isPlaying()) {
-                mediaPlayer.start();
+        if (!isActive) return;
+        applyImmersiveMode();
+
+        if (!isPaused) return;
+        isPaused = false;
+        lastResumeRealtimeMs = SystemClock.elapsedRealtime();
+
+        if (mediaPlayer != null && !mediaPlayer.isPlaying()) {
+            mediaPlayer.start();
+        }
+        if (scrollAnimator != null && scrollAnimator.isPaused()) {
+            scrollAnimator.resume();
+        }
+        if (audioFadeAnimator != null && audioFadeAnimator.isPaused()) {
+            audioFadeAnimator.resume();
+        }
+
+        if (!isTransitioning) {
+            if (scrollRunnable != null && remainingScrollDelayMs > 0L) {
+                handler.postDelayed(scrollRunnable, remainingScrollDelayMs);
+            }
+            if (skipRevealRunnable != null && remainingSkipDelayMs > 0L) {
+                handler.postDelayed(skipRevealRunnable, remainingSkipDelayMs);
+            }
+            if (transitionRunnable != null && remainingTransitionMs > 0L) {
+                handler.postDelayed(transitionRunnable, remainingTransitionMs);
             }
         }
     }
@@ -264,6 +435,8 @@ public class HonorScreenManager {
 
     public void onDestroy() {
         isActive = false;
+        isTransitioning = false;
+        isPaused = false;
         if (activity != null && !activity.isDestroyed()) {
             activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
@@ -276,10 +449,7 @@ public class HonorScreenManager {
             audioFadeAnimator.cancel();
             audioFadeAnimator = null;
         }
-        if (binding != null) {
-            binding.honorSkipButton.animate().cancel();
-            binding.honorLayout.animate().cancel();
-        }
+        resetHonorViews();
         releaseMediaPlayer();
         handler.removeCallbacksAndMessages(null);
     }

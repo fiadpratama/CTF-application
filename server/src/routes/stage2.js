@@ -1,8 +1,8 @@
 /**
- * Stage 2 Route: Computational Proof & Flag Generation
+ * Stage 2: Computational proof verification and flag issuance.
  * 
- * Validates JWT session claims, checks mathematical proof calculation,
- * and delegates atomic flag issuance to the vault state service.
+ * Validates JWT session claims, decrypts the algebraic challenge solution,
+ * and delegates idempotent flag issuance to the distributed state service.
  */
 const express = require('express');
 const jwt = require('jsonwebtoken');

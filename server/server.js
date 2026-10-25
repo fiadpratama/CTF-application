@@ -1,8 +1,8 @@
 /**
- * Application Entry Point
+ * Standalone HTTP server entry point.
  * 
- * Thin wrapper that initializes and binds the HTTP listener when executed
- * directly, or exports the Express app instance for serverless runtime (Vercel).
+ * Binds the Express application to a local port when executed directly,
+ * or exports the application instance for serverless hosting environments (e.g., Vercel).
  */
 const app = require('./src/app');
 

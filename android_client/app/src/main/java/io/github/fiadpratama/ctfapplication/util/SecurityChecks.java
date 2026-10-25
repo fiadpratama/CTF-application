@@ -3,10 +3,10 @@ package io.github.fiadpratama.ctfapplication.util;
 import java.io.File;
 
 /**
- * Runtime Environment Integrity Checks
+ * Runtime environment integrity evaluator.
  *
- * Detects common sandbox, emulator, and root indicators to inform
- * client telemetry and terminal status outputs.
+ * Checks device characteristics and filesystem artifacts for virtualization (emulators)
+ * or privileged execution (root) environments to support diagnostic telemetry.
  */
 public class SecurityChecks {
 
@@ -37,9 +37,9 @@ public class SecurityChecks {
     }
 
     /**
-     * Checks for known su binary paths to evaluate device root status.
+     * Checks standard filesystem locations for superuser binaries.
      *
-     * @return true if su binary exists in standard filesystem paths
+     * @return true if an active root binary is identified
      */
     public static boolean isRooted() {
         String[] paths = {
@@ -60,9 +60,9 @@ public class SecurityChecks {
     }
 
     /**
-     * Evaluates environment integrity once and caches the result.
+     * Evaluates environment integrity with memoization to minimize filesystem overhead.
      *
-     * @return true if running under emulator or rooted environment
+     * @return true if running under an emulator or rooted environment
      */
     public static synchronized boolean isCompromised() {
         if (cachedCompromised == null) {
@@ -72,9 +72,9 @@ public class SecurityChecks {
     }
 
     /**
-     * Returns a summarized status log for terminal diagnostic output.
+     * Generates a concise diagnostic status string for terminal output.
      *
-     * @return Formatted status string
+     * @return Formatted status log string
      */
     public static String getEnvironmentSummary() {
         if (isCompromised()) {

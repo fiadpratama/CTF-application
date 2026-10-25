@@ -4,99 +4,112 @@
 
 ---
 
-Tantangan keamanan seluler praktis yang menyimulasikan asesmen keamanan aplikasi Android. Uji keahlian Anda dalam *reverse engineering*, inspeksi *runtime* dinamis, analisis kriptografi, dan manipulasi protokol jaringan.
+**CTF Application** adalah tantangan asesmen keamanan aplikasi Android *end-to-end*. Proyek ini dirancang untuk menguji kemampuan praktis dalam *reverse engineering* aplikasi seluler, analisis biner native, inspeksi kriptografi payload, serta rekonstruksi protokol klien-server.
 
-## Arsitektur
+## Gambaran Sistem
 
-- **Klien (Android):** Java dengan *engine* native C++ (JNI) (Android 8.0+ / API 26+, menargetkan API 34), diperkuat dengan obfuskasi simbol *compile-time*, *timing noise* eksekusi, serta deteksi *tracing* pasif.
-- **Backend (Serverless):** REST API Node.js modular di Vercel, didukung Upstash Redis untuk *state* terdistribusi, *pipeline* verifikasi Lua atomik, token sesi JWT *stateless*, dan *version gating*.
-- **Kriptografi:** Enkripsi *payload* AES-256-GCM yang melindungi komunikasi klien-server.
+- **Klien Seluler:** Aplikasi Android (`Android 8.0+ / API 26+`, menargetkan `API 34`) yang memadukan antarmuka Java dengan modul kriptografi native C++ (JNI).
+- **Backend Verifikasi:** Layanan REST Node.js modular yang menegakkan kompatibilitas versi klien, validasi sesi berbasis *state*, serta mitigasi penyalahgunaan otomatis.
+- **Keamanan Transportasi:** Enkripsi simetris terautentikasi yang melindungi payload komunikasi klien-server melalui HTTPS.
 
-## Alat & Prasyarat
+## Prasyarat & Perangkat
 
-- **Analisis Statis:** JADX, Apktool, atau Ghidra.
-- **Instrumentasi Dinamis:** Frida atau Objection.
-- **Intersepsi Trafik:** Burp Suite atau OWASP ZAP *(catatan: sertifikat CA pengguna memerlukan konfigurasi keamanan jaringan atau bypass runtime pada Android modern)*.
-
-## Spesifikasi Tantangan
-
-Tujuannya adalah menembus *pipeline* verifikasi dan mengklaim flag dari server jarak jauh melalui tiga tahap berurutan.
-
-### Tahap 1: Ekstraksi Kriptografi
-
-Klien mengirimkan *envelope* terenkripsi ke backend. Tentukan apa yang diharapkan server untuk memvalidasi *handshake* awal ini.
-
-<details>
-<summary>💡 Petunjuk untuk Tahap 1</summary>
-
-- **Orientasi:** Lihatlah ke balik lapisan *runtime* aplikasi. Jantung sesungguhnya berkomunikasi dalam bahasa tingkat rendah di mana batas logika berjalan.
-- **Metode:** Apa yang tertulis di permukaan biner tidak selalu menjadi apa yang dieksekusi mesin. Memori saat *runtime* mengenali apa yang salah dibaca oleh analisis statis.
-- **Bukti:** Penjaga gerbang tidak sekadar menolak atau menerima; dengarkan bagaimana ia menolak Anda. Saku yang kosong memantulkan gema yang berbeda dari kunci palsu.
-</details>
-
-### Tahap 2: Manipulasi Protokol
-
-Lolos dari gerbang pertama memberikan akses ke evaluasi sisi server yang membutuhkan data di luar alur default.
-
-<details>
-<summary>💡 Petunjuk untuk Tahap 2</summary>
-
-- **Orientasi:** Lolos dari ujian pertama bukan hanya membuka jalan, tetapi membawa pesan. Jangan buang amplop yang mengantarkan Anda masuk.
-- **Metode:** Otoritas memberikan stempel bertanda tangan bersamaan dengan teka-teki terselubung. Amati metadata di sekitar pemberian tersebut—jawabannya menjembatani apa yang diberikan dan apa yang diminta.
-- **Bukti:** Waktu tidak berhenti, dan keseimbangan menuntut perhitungan. Selesaikan persamaan tersebut sebelum kesabaran sang otoritas habis.
-</details>
-
-### Tahap 3: Verifikasi Akhir
-
-Kirimkan flag yang berhasil diklaim untuk menyelesaikan asesmen dan membuka Hall of Fame.
-
-<details>
-<summary>💡 Petunjuk untuk Tahap 3</summary>
-
-- **Orientasi:** Tanda kemenangan ini tidak dapat dipindahtangankan; ia hanya mengenali sesi yang memperjuangkannya.
-- **Metode:** Anda dapat mempersembahkan bukti melalui terminal antarmuka, atau berbicara langsung ke pintu verifikasi terakhir.
-- **Bukti:** Penjaga gerbang hanya menerima penjelajah dengan identitas terkini. Pastikan transmisi Anda mencerminkan era yang sedang berjalan.
-</details>
+- **Lingkungan Target:** Emulator atau perangkat fisik Android 8.0+ (API 26+).
+- **Analisis Statis:** Dekompilator dan *disassembler* untuk memeriksa *bytecode* Java serta pustaka native (misalnya JADX, Apktool, Ghidra).
+- **Analisis Dinamis:** Kerangka kerja instrumentasi *runtime* untuk mengamati alur eksekusi dan memori (misalnya Frida, Objection).
+- **Inspeksi Jaringan & Protokol:** Proksi intersepsi HTTP atau lingkungan pembuatan skrip (misalnya Python, Burp Suite, OWASP ZAP) untuk memeriksa header, kode status, dan payload terenkripsi.
 
 ## Memulai
 
-1. Unduh `.apk` terbaru dari [Rilis](../../releases). Build yang usang akan ditolak dengan respons `HTTP 426`.
-2. Pasang pada emulator atau perangkat uji fisik (Android 8.0+).
-3. Siapkan proksi intersepsi Anda dan mulai *reverse engineering*.
+1. **Unduh APK Rilis:** Unduh berkas `.apk` resmi terbaru dari halaman [GitHub Releases](https://github.com/fiadpratama/CTF-application/releases). Versi klien yang usang akan ditolak oleh server dengan respons `HTTP 426 Upgrade Required`.
+2. **Verifikasi Integritas Paket:** Pastikan keaslian sertifikat penandatangan dan *checksum* berkas menggunakan langkah pada bagian [Verifikasi Keaslian Rilis](#verifikasi-keaslian-rilis).
+3. **Mulai Investigasi:** Pasang APK pada lingkungan uji Anda dan telusuri alur verifikasi mulai dari *handshake* awal hingga klaim flag akhir.
 
-Untuk catatan rilis dan riwayat pembaruan lengkap, lihat [CHANGELOG.md](CHANGELOG.md).
+> **Mode Asesmen:** Meskipun repositori ini bersifat *open-source* sebagai referensi arsitektur, kunci kriptografi produksi dan kode otorisasi tidak disimpan di dalam kontrol versi. Untuk pengalaman investigasi yang utuh, perlakukan APK rilis sebagai target *black-box*.
 
-### Membangun dari Kode Sumber (Opsional)
+<details>
+<summary>Membangun dari Kode Sumber (Opsional untuk Pengembangan Lokal)</summary>
+
+Untuk mengompilasi klien Android secara lokal menggunakan konfigurasi kunci tiruan:
 
 ```bash
-# 1. Siapkan konfigurasi rahasia native lokal
+# 1. Buat berkas konfigurasi rahasia native lokal dari templat
 cp android_client/app/src/main/cpp/native-secrets.properties.example android_client/app/src/main/cpp/native-secrets.properties
 
-# 2. Bangun APK rilis menggunakan Gradle Wrapper
+# 2. Kompilasi APK rilis melalui Gradle Wrapper
 cd android_client
 ./gradlew assembleRelease      # Linux / macOS
 gradlew.bat assembleRelease    # Windows
 ```
-File APK hasil kompilasi akan berada di `android_client/app/build/outputs/apk/release/app-release.apk`.
 
-## Privasi & Pencegahan Penyalahgunaan
+Berkas APK hasil kompilasi akan tersedia di `android_client/app/build/outputs/apk/release/app-release.apk`.
+</details>
 
-Tantangan ini tidak mengumpulkan data pribadi.
-- **Rate Limiting:** Alamat IP klien disimpan sementara di Redis dengan kedaluwarsa otomatis (hingga 30 menit bagi klien yang melanggar batas) semata-mata untuk mitigasi *brute-force*.
-- **Penghitung Penyelesaian:** Penghitung anonim global mencatat jumlah tantangan yang selesai tanpa menyimpan identitas pengguna.
-- **Trafik:** Hanya payload tantangan yang dievaluasi. Jangan mengirimkan kredensial pribadi.
+## Tahapan Asesmen & Panduan Bertingkat
+
+Tantangan ini terdiri atas tiga tahap berurutan yang saling terhubung dalam satu rantai bukti. Buka bagian petunjuk di bawah ini hanya jika Anda membutuhkan arahan investigasi.
+
+### Tahap 1: Handshake & Ekstraksi Kriptografi
+
+Klien menyusun dan mengenkripsi payload *handshake* awal, namun ditolak oleh server saat dijalankan melalui tombol bawaan antarmuka. Temukan perbedaan antara payload default yang dikirim klien dan kontrak validasi yang diminta backend.
+
+<details>
+<summary>Petunjuk untuk Tahap 1</summary>
+
+- **Orientasi:** Telusuri alur eksekusi mulai dari *handler* tombol utama di Java, fungsi kriptografi pembantu, hingga batas pemanggilan JNI C++. Bandingkan daftar fungsi yang diekspor oleh pustaka native dengan fungsi yang benar-benar dipanggil oleh lapisan Java.
+- **Metode:** Jangan hanya mengandalkan teks polos yang terlihat pada *dump* statis biner. Bandingkan hasil dekompilasi statis dengan nilai kembalian saat *runtime*, serta perhatikan pemeriksaan lingkungan yang dapat mengubah hasil apabila proses *tracing* aktif terdeteksi.
+- **Relasi Bukti:** Amati kode status HTTP dan pesan penolakan dari endpoint tahap pertama. Server memberikan respons yang berbeda antara parameter payload yang belum disertakan dan nilai otorisasi yang salah.
+</details>
+
+### Tahap 2: Rekonstruksi Sesi & Protokol
+
+Lolos dari *handshake* tahap pertama akan menghasilkan nilai tantangan (*challenge*) beserta metadata sesi. Rekonstruksi struktur request tahap kedua untuk mengirimkan hasil perhitungan dan memperoleh flag.
+
+<details>
+<summary>Petunjuk untuk Tahap 2</summary>
+
+- **Orientasi:** Antarmuka aplikasi Android tidak menyediakan tombol untuk tahap kedua. Anda perlu membangun dan mengirimkan request berikutnya secara mandiri menggunakan data dari respons Tahap 1.
+- **Metode:** Periksa *body* JSON sekaligus seluruh HTTP *response header* yang diterima dari Tahap 1. Dekode parameter yang diberikan, tentukan hubungan perhitungannya dengan nilai *challenge*, lalu enkripsi jawabannya menggunakan struktur *envelope* yang sama.
+- **Relasi Bukti:** Endpoint tahap kedua mewajibkan header token sesi yang aktif beserta jawaban terenkripsi. Pengiriman jawaban yang valid sebelum masa berlaku sesi habis akan menerbitkan satu flag unik.
+</details>
+
+### Tahap 3: Verifikasi Flag & Penyelesaian
+
+Kirimkan flag yang telah diterbitkan untuk memverifikasi penyelesaian tantangan dan membuka layar debriefing Hall of Fame.
+
+<details>
+<summary>Petunjuk untuk Tahap 3</summary>
+
+- **Orientasi:** Flag dibuat secara dinamis untuk setiap sesi yang sah dan divalidasi terhadap status di server, bukan disimpan sebagai teks statis di dalam berkas APK.
+- **Metode:** Masukkan flag yang diperoleh ke kolom input verifikasi pada aplikasi Android atau kirimkan langsung ke endpoint verifikasi selama masa registrasi flag masih aktif.
+- **Relasi Bukti:** Pastikan setiap request menyertakan header versi aplikasi yang sesuai. Klaim flag yang terverifikasi akan membuka sekuens debriefing Hall of Fame.
+</details>
+
+## Cakupan, Privasi, & Pencegahan Penyalahgunaan
+
+- **Aturan Pengujian:** Pengujian dibatasi pada analisis biner, inspeksi protokol, dan pengiriman request terukur. Serangan *brute-force* otomatis, *fuzzing* berintensitas tinggi, atau pengujian *Denial of Service* (DoS) terhadap infrastruktur aktif dilarang keras.
+- **Privasi Data:** Aplikasi ini tidak mengumpulkan atau menyimpan data pribadi. Jangan mengirimkan kredensial pribadi atau informasi sensitif di dalam payload.
+- **Pembatasan Laju & Telemetri:** Alamat IP klien diproses secara sementara (*ephemeral*) di memori dengan masa kedaluwarsa otomatis semata-mata untuk penegakan *rate limit* dan mitigasi penyalahgunaan otomatis. Penyelesaian tantangan hanya dicatat melalui penghitung global anonim.
 
 ## Verifikasi Keaslian Rilis
 
-APK rilis resmi ditandatangani menggunakan *keystore* pengembang khusus:
+Sebelum memasang APK, Anda dapat memverifikasi **tanda tangan sertifikat pengembang** (keaslian) maupun **checksum berkas** (keutuhan) secara mandiri:
 
-- **Sidik Jari SHA-256:** `11919c358daf9c9f56da77617284fb99cc402fc789242fe8c75c674a3c551a62`
-- Verifikasi menggunakan `apksigner`:
-  ```bash
-  apksigner verify --print-certs app-release.apk
-  ```
-- Cocokkan *digest* SHA-256 berkas dengan *checksum* yang dipublikasikan pada halaman [GitHub Releases](../../releases).
+1. **Tanda Tangan Sertifikat Pengembang (Keaslian):**  
+   Seluruh APK rilis resmi ditandatangani dengan *keystore* pengembang yang sama (`CN=Fiad Pratama, OU=Software Engineering, O=Fiad Pratama, L=Palu, ST=Central Sulawesi, C=ID`). Verifikasi *digest* SHA-256 sertifikat menggunakan `apksigner` dari Android SDK:
+   ```bash
+   apksigner verify --print-certs app-release.apk
+   ```
+   - **SHA-256 Sertifikat Penandatangan Resmi:**
+     ```text
+     11919c358daf9c9f56da77617284fb99cc402fc789242fe8c75c674a3c551a62
+     ```
 
----
+2. **Checksum Berkas APK (Keutuhan):**  
+   Hitung hash SHA-256 dari berkas `.apk` yang diunduh, lalu cocokkan hasilnya dengan *checksum* berkas yang tertera pada halaman [GitHub Releases](https://github.com/fiadpratama/CTF-application/releases):
+   ```bash
+   sha256sum app-release.apk                    # Linux / macOS
+   certutil -hashfile app-release.apk SHA256    # Windows
+   ```
 
-*Disclaimer: Repositori ini ditujukan semata-mata untuk riset keamanan edukatif dan latihan peretasan etis. Serangan DoS otomatis atau brute-force terhadap infrastruktur live dilarang keras.*
+Untuk riwayat perubahan versi dan arsitektur, lihat [CHANGELOG.md](CHANGELOG.md). Untuk batasan keamanan infrastruktur dan kebijakan pelaporan kerentanan, lihat [SECURITY.md](SECURITY.md).

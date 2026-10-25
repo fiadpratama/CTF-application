@@ -1,8 +1,8 @@
 /**
- * Global Error Handler Middleware
+ * Global error handling middleware.
  * 
- * Catches unhandled exceptions, payload size violations, and JSON syntax errors
- * to prevent server crash and ensure uniform JSON error responses.
+ * Intercepts unhandled exceptions, malformed JSON payloads, and payload size violations,
+ * returning structured JSON error responses while preventing process termination.
  */
 function errorHandler(err, req, res, _next) {
     if (res.headersSent) {
