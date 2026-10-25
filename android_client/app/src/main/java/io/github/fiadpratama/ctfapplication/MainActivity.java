@@ -81,9 +81,22 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public WindowInsetsCompat onApplyWindowInsets(View v, WindowInsetsCompat insets) {
                 Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+                Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
                 int basePadding = (int) (18 * getResources().getDisplayMetrics().density);
                 int topPadding = Math.max(systemBars.top + (int) (24 * getResources().getDisplayMetrics().density), (int) (52 * getResources().getDisplayMetrics().density));
-                v.setPadding(basePadding, topPadding, basePadding, basePadding);
+                int bottomPadding = ime.bottom + basePadding;
+                v.setPadding(basePadding, topPadding, basePadding, bottomPadding);
+
+                if (ime.bottom > 0 && binding != null) {
+                    binding.terminalScrollView.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (isActivityAlive() && binding != null) {
+                                binding.terminalScrollView.fullScroll(View.FOCUS_DOWN);
+                            }
+                        }
+                    });
+                }
                 return insets;
             }
         });
@@ -242,7 +255,7 @@ public class MainActivity extends AppCompatActivity {
                     long remainingSec = appRateLimiter.getRemainingBanSeconds();
                     String dur = ToastHelper.formatDuration(remainingSec);
                     showThrottledAlert(String.format(getString(R.string.toast_rate_limited), dur), ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
-                    terminalLogger.log("> [SYS] Rate limit exceeded: 10 requests / min. Cooldown: 5 min.");
+                    terminalLogger.log(getString(R.string.log_rate_limited));
                     return;
                 }
 
@@ -280,7 +293,7 @@ public class MainActivity extends AppCompatActivity {
                     long remainingSec = appRateLimiter.getRemainingBanSeconds();
                     String dur = ToastHelper.formatDuration(remainingSec);
                     showThrottledAlert(String.format(getString(R.string.toast_rate_limited), dur), ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
-                    terminalLogger.log("> [SYS] Rate limit exceeded: 10 requests / min. Cooldown: 5 min.");
+                    terminalLogger.log(getString(R.string.log_rate_limited));
                     return;
                 }
 

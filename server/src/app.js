@@ -18,8 +18,7 @@ const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
-app.use(rateLimitMiddleware);
-app.use(versionGateMiddleware);
+app.use('/api/vault', rateLimitMiddleware, versionGateMiddleware);
 app.use(express.json({ limit: '10kb' }));
 
 app.use('/api/vault', stage1Router);

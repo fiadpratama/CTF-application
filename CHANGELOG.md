@@ -14,29 +14,31 @@ Major architectural overhaul across both client and serverless backend, introduc
 ### Added
 - **Distributed State Architecture:** Migrated backend persistence to Upstash Redis, enabling stateless multi-instance scalability across Vercel serverless edge functions.
 - **Atomic Lua Scripts:**
-  - `RATE_LIMIT_LUA`: Sliding-window rate limiting with an escalating 30-minute IP ban upon exceeding threshold.
-  - `ISSUE_FLAG_LUA`: Idempotent Stage 2 flag generation and deterministic secret calculation.
+  - `RATE_LIMIT_LUA`: Dual-window rate limiting (30 requests/60s sustained quota and 15 requests/10s burst detection) with progressive IP ban escalation (30 minutes $\rightarrow$ 1 hour $\rightarrow$ 3 hours) and 24-hour repeat violation retention.
+  - `ISSUE_FLAG_LUA`: Idempotent Stage 2 flag generation and deterministic session binding.
   - `CLAIM_FLAG_LUA`: Atomic single-use flag redemption preventing race conditions and double-claims.
-- **Stateless JWT Sessions:** Implemented HS256 signed session tokens carrying challenge progress and single-use `jti` nonces.
-- **Flag Claim Grace Window:** Added a 60-second grace window permitting flag claim retries on transient network timeouts without burning the flag.
+- **Stateless JWT Sessions:** Implemented HS256 signed session tokens carrying challenge parameters, version metadata, and single-use `jti` nonces.
+- **Flag Claim Grace Window:** Added a 5-minute (300-second) grace window permitting flag claim retries on transient network timeouts without burning the flag or duplicating solve counts.
 - **Hall of Fame v2 & Cinematic Debrief:**
-  - **Skip Button & Audio Feedback:** Added an instant skip action button on the victory debrief sequence paired with tactile terminal audio feedback (`ToneGenerator.TONE_PROP_BEEP, 50`) synchronized with button clicks.
-  - **Dual Gradient Overlays:** Added top (`bg_honor_fade_top`, 115dp with a 20% solid stop for a smooth 60% perceived fade intensity) and bottom (`bg_honor_fade_bottom`, 24dp) gradient fades layered above the ASCII scroll view and beneath controls.
-  - **Immersive Edge-to-Edge Experience:** Dynamically applies `LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES` and sticky immersive mode during debrief animation to seamlessly hide system and navigation bars, with safe restoration upon exit.
+  - **Delayed Skip Button & Audio Feedback:** Added a skip action button (revealed after 15 seconds) on the victory debrief sequence paired with tactile terminal audio feedback (`ToneGenerator.TONE_PROP_BEEP, 50`), transition state locking (`isTransitioning`), and smooth 1-second audio/visual fade-out.
+  - **Dual Gradient Overlays:** Added top (`bg_honor_fade_top`, 115dp with a 20% solid stop) and bottom (`bg_honor_fade_bottom`, 24dp) gradient fades layered above the scrolling debrief view and beneath interactive controls.
+  - **Immersive Edge-to-Edge Experience:** Dynamically applies `LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES` and sticky immersive mode during debrief playback to hide system and navigation bars, with safe restoration upon exit.
+  - **Lifecycle-Aware Timeline Synchronization:** Synchronized background music (`MediaPlayer`), scrolling credits (`ObjectAnimator`), and delayed transition timers across `onPause()` and `onResume()` using elapsed monotonic time (`SystemClock.elapsedRealtime()`).
   - **Session Persistence:** Added an anonymous global solve counter, retry cooldown display, and `FLAG_KEEP_SCREEN_ON` to prevent device sleep during playback.
-- **Dynamic Display Cutout & WindowInsets:** Implemented Jetpack `ViewCompat.setOnApplyWindowInsetsListener` on `mainLayout` to dynamically calculate status bar and display cutout insets (`systemBars.top + 24dp`), guaranteeing zero collision with center punch-hole cameras across devices.
-- **In-App Client Rate Limiting:** Added proactive client-side request throttling and cooldown timers to prevent rapid submission spamming.
+- **Dynamic Display Cutout & IME WindowInsets:** Implemented Jetpack `ViewCompat.setOnApplyWindowInsetsListener` on `mainLayout` (combining `systemBars()`, `displayCutout()`, and `ime()` insets for camera clearance and automatic soft-keyboard layout resizing) and on `honorSkipButton` (dynamic `displayCutout()` margin clearance).
+- **In-App Client Rate Limiting:** Added proactive client-side request throttling (`AppRateLimiter`: 10 requests/60s threshold with a 5-minute cooldown) to prevent rapid submission spamming.
 - **Automated Native Key Generation:** Integrated `generateNativeKeys` Gradle task directly into the `preBuild` lifecycle to generate native C++ headers deterministically from local secrets.
 - **Modernized Android Tooling:** Bundled Gradle Wrapper 8.5, updated Android Gradle Plugin to 8.2.2, targeted Android 14 (API 34), and standardized Java 17 toolchain.
 - **Fail-Open Resilience:** Added graceful fail-open fallback in rate limiting to maintain service availability during transient Redis connectivity faults.
 
 ### Changed
-- **Client Architecture Modularization:** Extracted Hall of Fame lifecycle and debrief logic into `HonorScreenManager` and UI alerts into `ToastHelper`, decoupling `MainActivity` responsibilities.
-- **Server Modular Architecture & Route Decomposition:** Refactored monolithic `server.js` into clean architectural layers under `server/src/` (`app.js`, `routes/`, `middleware/`, `services/`, `config.js`), modularized verification endpoints into dedicated per-stage routes (`stage1.js`, `stage2.js`, `stage3.js`), and isolated Lua scripts inside `vaultState` service.
+- **Client Architecture Modularization:** Extracted Hall of Fame lifecycle and debrief logic into `HonorScreenManager`, UI alerts into `ToastHelper`, and client-side throttling into `AppRateLimiter`, decoupling `MainActivity` responsibilities.
+- **Codebase Documentation & Comment Standardization:** Refactored and standardized Javadoc, JSDoc, and C++ comments across both Android client (`android_client/`) and Node.js server (`server/`) modules to adhere to clean industry standards—focusing on architectural context, protocol security, and lifecycle constraints without noise or challenge spoilers.
+- **Server Modular Architecture & Route Decomposition:** Refactored monolithic `server.js` into clean architectural layers under `server/src/` (`app.js`, `routes/`, `middleware/`, `services/`, `config.js`), modularized verification endpoints into dedicated per-stage routes (`stage1.js`, `stage2.js`, `verifyFlag.js`), and isolated Redis Lua scripts inside `vaultState.js`.
 - **Hall of Fame Layout & Spacing:** Standardized inter-section ASCII text spacing in `hallOfFame.js` with uniform double line breaks (`\n\n`), scaled title typography to 36sp, and enhanced section margins.
-- **UI Design System Standardization:** Extracted launcher icon colors into shared semantic color tokens (`@color/ic_launcher_background`, `@color/ic_launcher_accent`), categorized color palettes in `colors.xml`, renamed the Stage 2 action button to "DECRYPT PAYLOAD", and refined challenge subtitle styling.
+- **UI Design System Standardization:** Extracted launcher icon colors into shared semantic color tokens (`@color/ic_launcher_background`, `@color/ic_launcher_accent`), categorized color palettes in `colors.xml`, renamed the Stage 1 action button to "DECRYPT PAYLOAD", and refined challenge subtitle styling.
 - **Terminal UI Thread Safety:** Refactored `TerminalLogger` to a thread-safe FIFO queue (`Queue<LogEntry>`) to prevent UI callback collisions and Activity context leaks.
-- **Terminal Output Polish:** Standardized terminal diagnostic output formatting and streamlined environment integrity logging without exposing spoiler internals.
+- **Terminal Output Polish:** Standardized terminal diagnostic output formatting and extracted all user-facing log messages into `strings.xml` resources.
 - **Network Safety & Exception Handling:** Enforced strict `try-finally` stream closing and timeout handling across all `VaultApiClient` network calls.
 - **Unified Client Error Display:** Standardized HTTP error extraction to display server-provided error messages directly in the terminal interface.
 - **Stage 1 Verification Semantics:** Separated parameter presence checks (HTTP 400 *Missing backdoor_code parameter*) from token validation (HTTP 401 *Invalid backdoor code*) for fair protocol deduction.
@@ -45,9 +47,15 @@ Major architectural overhaul across both client and serverless backend, introduc
 - **Consolidated Git Configuration:** Unified repository ignore rules into a single root `.gitignore`.
 - **Documentation & Bilingual Support:** Added bilingual (English/Indonesian) README, refined threat modeling in `SECURITY.md`, and synchronized architecture specifications.
 
+### Fixed
+- **Soft-Keyboard Layout Resize & Terminal Auto-Scroll:** Restored automatic upward shifting of the flag input and submit controls above the virtual keyboard by integrating `WindowInsetsCompat.Type.ime()` into `mainLayout`'s inset listener while preserving edge-to-edge rendering on `honorLayout`.
+- **Hall of Fame Playback & Scroll State Reset:** Resolved brief visual flicker and credit continuation glitch on repeated Hall of Fame playback by introducing `resetHonorViews()` in `HonorScreenManager` to synchronously cancel active animators, reset scroll coordinates (`scrollTo(0, 0)`), and enforce zero alpha before display.
+- **Initial Layout Inset Clearance:** Adjusted `activity_main.xml` base layout padding (`46dp`) ensuring balanced display clearance and camera cutout aesthetics across varied aspect ratios.
+
 ### Security
-- Enforced single-use JWT session consumption via Redis atomic blacklist check.
-- Added strict JSON request body schema validation and JWT claim constraints (`iat`, `exp`, `nbf`).
+- Enforced single-use JWT session consumption via Redis atomic state binding.
+- Added strict JSON request body schema validation and JWT claim verification (`iat`, `exp`, `jti`, `stage`, `version`).
+- Scoped rate limiting and version gate middlewares specifically to `/api/vault` endpoints prior to JSON body parsing.
 - Added startup environment validation ensuring required secrets (`UPSTASH_REDIS_REST_URL`, `JWT_SECRET`, etc.) are configured before server boot.
 - Upgraded `qs` dependency to resolve security vulnerability.
 - Removed unused Android system permissions from `AndroidManifest.xml`.
@@ -177,4 +185,3 @@ Initial release of the CTF Android application and serverless backend infrastruc
 - **Serverless Backend:** Express.js verification endpoints deployed on Vercel (`verify-stage-1`, `verify-stage-2`, `verify-stage-3`).
 - **Hall of Fame:** Terminal ASCII victory sequence and solve confirmation.
 - **Initial Build:** First downloadable release package (`The_Vault_CTF.apk`, `versionCode 1`).
-

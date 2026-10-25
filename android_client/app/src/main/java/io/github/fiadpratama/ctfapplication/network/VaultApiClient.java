@@ -142,14 +142,4 @@ public class VaultApiClient {
         }
         return defaultSeconds;
     }
-
-    /**
-     * Extracts cooldown duration in seconds with a safe 60-second default.
-     *
-     * @param rawJsonBody Raw HTTP response body
-     * @return Extracted cooldown seconds
-     */
-    public static int extractRetryAfterSeconds(String rawJsonBody) {
-        return extractRetryAfterSeconds(rawJsonBody, 60);
-    }
 }

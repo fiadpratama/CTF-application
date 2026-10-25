@@ -25,6 +25,7 @@
     <string name="log_flag_submitting">&gt; [NET] Submitting challenge flag for verification...</string>
 
     <!-- Terminal Log Pipeline -->
+    <string name="log_rate_limited">&gt; [SYS] Rate limit exceeded: 10 requests / min. Cooldown: 5 min.</string>
     <string name="err_no_internet">&gt; [ERR] Network unavailable</string>
     <string name="err_timeout">&gt; [504] Connection timed out</string>
     <string name="err_unexpected">&gt; [500] Internal server error</string>

@@ -9,7 +9,7 @@ const redis = require('../services/redis');
 const WINDOW_SECONDS = 60;
 const MAX_REQUESTS = 30;
 const BURST_WINDOW_SECONDS = 10;
-const MAX_BURST_REQUESTS = 10;
+const MAX_BURST_REQUESTS = 15;
 const VIOLATION_TTL_SECONDS = 86400; // 24-hour sliding retention for repeat violation tracking
 
 /**
