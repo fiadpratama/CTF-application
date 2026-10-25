@@ -14,10 +14,10 @@ import java.nio.charset.StandardCharsets;
 import io.github.fiadpratama.ctfapplication.BuildConfig;
 
 /**
- * Vault REST API Client
+ * HTTP REST transport client.
  *
- * Handles HTTPS transport, request timeout management, and client version attribution
- * when communicating with the remote Vault serverless backend.
+ * Handles HTTPS request dispatching, socket timeout configuration, client version headers,
+ * and structured error parsing when communicating with the backend.
  */
 public class VaultApiClient {
 
@@ -34,7 +34,7 @@ public class VaultApiClient {
     }
 
     /**
-     * Dispatches an asynchronous HTTP POST request with JSON payload.
+     * Dispatches an asynchronous HTTP POST request carrying a JSON payload.
      *
      * @param urlStr Target endpoint URL
      * @param body JSON body to transmit

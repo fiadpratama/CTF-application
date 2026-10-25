@@ -1,7 +1,9 @@
 /**
- * Redis Connection Service
+ * Redis Client Service
  * 
- * Provides a shared Upstash Redis client instance initialized from environment variables.
+ * Configures and exports a shared Upstash Redis HTTP client.
+ * Operates over REST to provide low-latency stateless caching and rate limiting
+ * compatible with serverless runtimes.
  */
 const { Redis } = require('@upstash/redis');
 

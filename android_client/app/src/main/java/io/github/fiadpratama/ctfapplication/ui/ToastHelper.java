@@ -6,10 +6,10 @@ import android.widget.Toast;
 import java.util.Locale;
 
 /**
- * UI Feedback & Notification Helper
+ * UI notification helper with rate-limiting protection.
  *
- * Manages toast notifications with debounce throttling and active-instance cancellation
- * to prevent OS notification queue build-up and screen spamming.
+ * Provides debounced toast alerts and active-instance cancellation to prevent
+ * notification queue saturation across rapid user interactions.
  */
 public class ToastHelper {
 
@@ -19,8 +19,7 @@ public class ToastHelper {
     private long lastToastTimestamp = 0;
 
     /**
-     * Displays a short Toast notification with rate-limiting protection.
-     * If called consecutively within the throttle window, the call is ignored to avoid UI spam.
+     * Displays a brief toast message, dropping rapid invocations within the throttle window.
      *
      * @param context Application or Activity context
      * @param message Text to display
@@ -47,10 +46,10 @@ public class ToastHelper {
     }
 
     /**
-     * Formats seconds into human-readable duration strings (e.g. "5 min", "4 min 35 s", "45 s").
+     * Formats seconds into a human-readable duration string (e.g., "5 min", "4 min 35 s", "45 s").
      *
      * @param seconds Total seconds
-     * @return Formatted localized string
+     * @return Formatted duration string
      */
     public static String formatDuration(long seconds) {
         if (seconds >= 60) {
@@ -65,7 +64,7 @@ public class ToastHelper {
     }
 
     /**
-     * Cancels any active toast and releases references to prevent leaks.
+     * Dismisses any active toast instance and clears references to prevent context leaks.
      */
     public void dismiss() {
         if (activeToast != null) {

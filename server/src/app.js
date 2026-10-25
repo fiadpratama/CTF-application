@@ -1,8 +1,8 @@
 /**
- * Express Application Configuration
+ * Express application router and middleware pipeline.
  * 
- * Configures middleware pipeline, security headers, request parsing,
- * rate limiting, client version verification, and stage route mounting.
+ * Configures security headers, request parsing limits, distributed rate limiting,
+ * client version gating, and modular stage route dispatchers.
  */
 const express = require('express');
 const rateLimitMiddleware = require('./middleware/rateLimit');

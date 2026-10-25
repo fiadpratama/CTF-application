@@ -31,10 +31,10 @@ import io.github.fiadpratama.ctfapplication.util.AppRateLimiter;
 import io.github.fiadpratama.ctfapplication.util.SecurityChecks;
 
 /**
- * Main Activity
+ * Main application controller.
  *
- * Core coordinator for the Android CTF client application. Manages UI event dispatching,
- * terminal console streaming, native cryptographic handshakes, and flag verification workflows.
+ * Coordinates UI event dispatching, interactive terminal streaming,
+ * native cryptographic handshakes, and flag verification workflows.
  */
 public class MainActivity extends AppCompatActivity {
 
@@ -51,7 +51,18 @@ public class MainActivity extends AppCompatActivity {
         System.loadLibrary("native-crypto");
     }
 
+    /**
+     * Retrieves the symmetric cipher key resolved by the native cryptographic engine.
+     *
+     * @return 256-bit symmetric encryption key string
+     */
     public native String getE2EKey();
+
+    /**
+     * Retrieves the maintenance protocol token resolved by the native engine.
+     *
+     * @return Handshake authorization token string
+     */
     public native String getBackdoor();
 
     @Override
@@ -207,7 +218,7 @@ public class MainActivity extends AppCompatActivity {
         binding.honorScroll.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
-                return true; 
+                return true;
             }
         });
 

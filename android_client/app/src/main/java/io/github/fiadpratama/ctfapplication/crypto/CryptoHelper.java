@@ -10,10 +10,10 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
- * Cryptographic Utility Service
+ * Cryptographic helper for secure transport operations.
  *
- * Provides symmetric encryption (AES-256-GCM) and cryptographic hashing
- * for secure client-server communication and payload integrity verification.
+ * Encapsulates symmetric payload encryption (AES-256-GCM) with authenticated tags
+ * and cryptographic hashing (SHA-256) used during challenge handshakes.
  */
 public class CryptoHelper {
 

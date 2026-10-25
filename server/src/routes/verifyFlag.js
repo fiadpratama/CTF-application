@@ -1,8 +1,8 @@
 /**
- * Stage 3 Route: Flag Redemption & Debriefing
+ * Stage 3: Flag redemption and victory debriefing.
  * 
- * Verifies submitted candidate flag, claims the solve atomically via vault state,
- * and delivers the finalized Hall of Fame debriefing debrief.
+ * Validates submitted candidate flags, records solve metrics atomically,
+ * and compiles structured Hall of Fame debriefing output.
  */
 const express = require('express');
 const { claimSolveFlag } = require('../services/vaultState');

@@ -5,25 +5,24 @@ import java.util.LinkedList;
 import java.util.Queue;
 
 /**
- * Client-Side Rate Limiter & Abuse Prevention
+ * In-memory client-side rate limiter.
  *
- * Enforces in-app request quotas (maximum 10 requests within a 60-second sliding window)
- * to prevent automated flooding and mitigate upstream server-side IP bans.
- * Escalates to a 5-minute client cooldown upon violation.
+ * Implements a sliding-window algorithm to throttle outbound verification requests,
+ * mitigating upstream server load and guiding deliberative interaction.
  */
 public class AppRateLimiter {
 
-    public static final long WINDOW_MS = 60_000L;          // 1 minute window
-    public static final int MAX_REQUESTS = 10;             // Max 10 requests per window
-    public static final long BAN_DURATION_MS = 300_000L;   // 5 minutes ban (300 seconds)
+    public static final long WINDOW_MS = 60_000L;
+    public static final int MAX_REQUESTS = 10;
+    public static final long BAN_DURATION_MS = 300_000L;
 
     private final Queue<Long> requestTimestamps = new LinkedList<>();
     private long bannedUntilTimestamp = 0;
 
     /**
-     * Checks if the client is currently subject to an active rate-limiting ban.
+     * Determines whether the client is currently subject to an active cooldown ban.
      *
-     * @return true if cooldown ban is active; false otherwise
+     * @return true if cooldown is active; false otherwise
      */
     public synchronized boolean isBanned() {
         long now = SystemClock.elapsedRealtime();
@@ -38,10 +37,10 @@ public class AppRateLimiter {
     }
 
     /**
-     * Records a new request attempt and evaluates whether it exceeds rate limits.
-     * If the quota is exceeded (> 10 requests within 60 seconds), initiates a 5-minute ban.
+     * Records an outbound request attempt and evaluates sliding window constraints.
+     * Initiates a local cooldown if the maximum request threshold is exceeded.
      *
-     * @return true if request is permitted; false if rate-limit ban is triggered or active
+     * @return true if the request is permitted; false if rate-limited or banned
      */
     public synchronized boolean recordAndCheck() {
         long now = SystemClock.elapsedRealtime();
@@ -65,9 +64,9 @@ public class AppRateLimiter {
     }
 
     /**
-     * Synchronizes a server-enforced cooldown ban into the local client limiter.
+     * Synchronizes a server-mandated cooldown duration with the local limiter state.
      *
-     * @param seconds Ban duration in seconds
+     * @param seconds Ban duration enforced by the upstream server
      */
     public synchronized void applyServerBan(long seconds) {
         long durationMs = Math.max(seconds, 60) * 1000L;
@@ -81,7 +80,7 @@ public class AppRateLimiter {
     /**
      * Calculates remaining cooldown time in seconds.
      *
-     * @return Remaining seconds until cooldown expires
+     * @return Remaining cooldown duration in seconds
      */
     public synchronized long getRemainingBanSeconds() {
         long now = SystemClock.elapsedRealtime();
@@ -92,7 +91,7 @@ public class AppRateLimiter {
     }
 
     /**
-     * Resets rate limiter state (for testing or session reboots).
+     * Clears all recorded timestamps and active bans to restore default state.
      */
     public synchronized void reset() {
         bannedUntilTimestamp = 0;

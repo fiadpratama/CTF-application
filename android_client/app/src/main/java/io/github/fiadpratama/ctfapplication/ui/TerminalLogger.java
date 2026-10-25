@@ -9,10 +9,10 @@ import java.util.Queue;
 import java.util.Random;
 
 /**
- * Terminal UI Emulator
+ * Terminal UI presentation controller.
  *
- * Implements typewriter-style character output and automatic downward scrolling
- * to simulate a retro security assessment terminal console.
+ * Simulates asynchronous typewriter console output with character-by-character
+ * streaming, randomized latency pacing, and auto-scrolling synchronization.
  */
 public class TerminalLogger {
 
@@ -55,19 +55,19 @@ public class TerminalLogger {
     }
 
     /**
-     * Queues a message to be rendered character-by-character on the terminal.
+     * Appends a log line to the typing queue.
      *
-     * @param message Text to display
+     * @param message Line of text to output
      */
     public void log(String message) {
         log(message, null);
     }
 
     /**
-     * Queues a message with a completion callback triggered when typing finishes.
+     * Appends a log line to the typing queue with a completion callback.
      *
-     * @param message Text to display
-     * @param onComplete Optional callback invoked after all characters are typed
+     * @param message Line of text to output
+     * @param onComplete Callback invoked after the line has completed rendering
      */
     public void log(String message, OnCompleteListener onComplete) {
         if (message == null) {
@@ -80,7 +80,7 @@ public class TerminalLogger {
     }
 
     /**
-     * Clears terminal text and cancels ongoing typing animations safely.
+     * Cancels active typing tasks, clears queued messages, and empties the log view.
      */
     public void clear() {
         handler.removeCallbacks(typeRunnable);
@@ -90,7 +90,7 @@ public class TerminalLogger {
     }
 
     /**
-     * Sequentially pops and appends characters to the TextView with randomized latency.
+     * Processes and renders the next character from the active queue item with randomized delay.
      */
     private void typeNextCharacter() {
         if (entryQueue.isEmpty()) {

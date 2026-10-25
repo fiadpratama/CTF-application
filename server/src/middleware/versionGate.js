@@ -1,7 +1,8 @@
 /**
- * Client Version Enforcement Middleware
+ * Client version enforcement middleware.
  * 
- * Rejects requests from outdated Android client builds via X-App-Version-Code header.
+ * Inspects the 'X-App-Version-Code' request header and rejects outdated client builds
+ * with HTTP 426 (Upgrade Required) to ensure active protocol and security compatibility.
  */
 const { MIN_VERSION_CODE } = require('../config');
 

@@ -1,8 +1,8 @@
 /**
- * Stage 1 Route: Client Handshake & Session Issuance
+ * Stage 1: Protocol handshake and session issuance.
  * 
- * Ingests encrypted client handshake, verifies backdoor authorization token
- * via constant-time comparison, and issues an ephemeral signed JWT session token.
+ * Ingests and decrypts the client handshake envelope, validates the maintenance authorization
+ * token using constant-time buffer comparison, and issues an ephemeral signed JWT session token.
  */
 const express = require('express');
 const crypto = require('crypto');

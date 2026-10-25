@@ -1,8 +1,8 @@
 /**
- * Application Configuration & Environment Validation
+ * Application environment configuration and startup validation.
  * 
- * Validates required secrets and operational parameters during startup.
- * Throws a critical error if any configuration constraints are violated.
+ * Enforces required environment variables, secret formatting constraints,
+ * and minimum client compatibility thresholds on process startup.
  */
 const E2EE_KEY_STRING = process.env.E2EE_KEY;
 const BACKDOOR_CODE = process.env.BACKDOOR_CODE;
@@ -11,7 +11,7 @@ const SECRET_MULTIPLIER = Number(MULTIPLIER_STRING);
 const JWT_SECRET = process.env.JWT_SECRET;
 const MIN_VERSION_CODE = 8;
 
-// Startup integrity validation
+// Validate operational secrets and parameters on module initialization
 const configErrors = [];
 if (!E2EE_KEY_STRING || Buffer.byteLength(E2EE_KEY_STRING, 'utf8') !== 32) {
     configErrors.push('E2EE_KEY must be exactly 32 bytes');

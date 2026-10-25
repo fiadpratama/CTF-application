@@ -1,7 +1,8 @@
 /**
- * Cryptographic Helper Service
+ * Cryptographic transport helper service.
  * 
- * Provides end-to-end payload decryption using AES-256-GCM.
+ * Implements AES-256-GCM authenticated payload decryption with strict validation
+ * of initialization vectors and authentication tags.
  */
 const crypto = require('crypto');
 const { E2EE_KEY } = require('../config');
