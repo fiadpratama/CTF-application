@@ -26,7 +26,7 @@ function buildHallOfFameMessage(solveNumber, flag) {
         "Thank you for participating. If you publish a write-up, please consider omitting direct solutions " +
         "and flags to preserve the challenge for future participants.\n\n" +
         "DEVELOPER & ARCHITECT\nFiad Pratama\n\n" +
-        "TECHNOLOGY STACK\nAndroid (Java/C++) & Node.js (Vercel Edge)\n\n" +
+        "TECHNOLOGY STACK\nAndroid (Java/C++) & Node.js (Vercel Serverless)\n\n" +
         "BACKGROUND SCORE\nW.A. Mozart - Dies Irae (Requiem in D minor)\n\n" +
         "SESSION TERMINATED\n\n" +
         "FLAG ACQUIRED\n" + flag;

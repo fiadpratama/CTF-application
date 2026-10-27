@@ -112,4 +112,9 @@ Before installing the APK, you can independently verify both its **developer sig
    certutil -hashfile app-release.apk SHA256    # Windows
    ```
 
+## License & Asset Attribution
+
+- **Source Code:** Released under the [MIT License](LICENSE).
+- **Audio Asset:** The Hall of Fame debriefing score (`android_client/app/src/main/res/raw/bgm.mp3`) features *W.A. Mozart — "Dies Irae" from Requiem in D minor, K. 626*, a public-domain classical composition (1791) included for educational presentation.
+
 For version history and architectural changes, see [CHANGELOG.md](CHANGELOG.md). For infrastructure security boundaries and vulnerability reporting, see [SECURITY.md](SECURITY.md).

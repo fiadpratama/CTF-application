@@ -1,8 +1,9 @@
 /**
  * Distributed vault state and atomic transaction service.
  * 
- * Coordinates flag issuance, session binding, and solve redemption using
- * atomic Redis Lua scripts to eliminate race conditions and double-claims.
+ * Coordinates flag issuance, session binding, and atomic solve redemption (single
+ * solve-counter increment with a 5-minute idempotent retry grace window) using
+ * Redis Lua scripts to eliminate race conditions and duplicate solve counts.
  */
 const redis = require('./redis');
 const { createFlagString } = require('./flags');
@@ -53,9 +54,10 @@ return candidateFlag
 `;
 
 /**
- * Atomic Lua script to claim a solve flag and increment global metrics with write rollback.
+ * Atomic Lua script to redeem a solve flag (single solve-counter increment from 'unused'
+ * to 'claimed:<solveNum>' with a 300-second idempotent retry grace window) and write rollback.
  * KEYS: [1] flag record (flag:<str>), [2] global solves counter (stats:solves)
- * Returns: solveNumber on success, existing solveNumber if idempotent replay, or negative error code
+ * Returns: solveNumber on initial claim, existing solveNumber on idempotent retry, or negative error code
  */
 const CLAIM_FLAG_LUA = `
 local status = redis.call('GET', KEYS[1])
@@ -141,7 +143,8 @@ async function issueSessionFlag(jti) {
 }
 
 /**
- * Claims a solve flag atomically, updating the global solve metric counter.
+ * Redeems a solve flag atomically, incrementing the global solve counter once while
+ * permitting idempotent retries within a 5-minute (300-second) grace window.
  *
  * @param {string} flag - 38-character candidate solve flag
  * @returns {Promise<{ status: number, solveNumber?: number, error?: string, message?: string }>}

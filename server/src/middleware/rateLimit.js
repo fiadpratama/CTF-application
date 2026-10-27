@@ -1,8 +1,9 @@
 /**
  * Distributed rate limiting and abuse prevention middleware.
  * 
- * Implements a dual-sliding-window rate evaluator (sustained quota + rapid burst anomaly detection)
- * with progressive ban escalation (30 min -> 1 hour -> 3 hours) using an atomic Redis Lua script.
+ * Implements a dual fixed-window rate evaluator (60s sustained quota + 10s rapid burst detection)
+ * with progressive ban escalation (30 min -> 1 hour -> 3 hours) and 24-hour sliding violation
+ * retention using an atomic Redis Lua script.
  */
 const redis = require('../services/redis');
 
@@ -13,7 +14,7 @@ const MAX_BURST_REQUESTS = 15;
 const VIOLATION_TTL_SECONDS = 86400; // 24-hour sliding retention for repeat violation tracking
 
 /**
- * Atomic Lua script for per-IP sliding-window rate tracking and escalating ban enforcement.
+ * Atomic Lua script for per-IP dual fixed-window rate tracking and escalating ban enforcement.
  *
  * KEYS: [1] ban record (banned:<ip>), [2] rate counter (ratelimit:<ip>),
  *       [3] violation counter (violations:<ip>), [4] burst counter (burst:<ip>)
@@ -43,13 +44,13 @@ if bannedUntil then
     return {0, 60}
 end
 
--- Track short-window burst rate for rapid spam detection
+-- Track short fixed-window burst rate for rapid spam detection
 local burstCount = redis.call('INCR', KEYS[4])
 if burstCount == 1 or redis.call('TTL', KEYS[4]) < 0 then
     redis.call('EXPIRE', KEYS[4], burstWindowSeconds)
 end
 
--- Track standard sliding window request count
+-- Track sustained fixed-window request count
 local count = redis.call('INCR', KEYS[2])
 if count == 1 or redis.call('TTL', KEYS[2]) < 0 then
     redis.call('EXPIRE', KEYS[2], windowSeconds)
@@ -132,6 +133,9 @@ async function checkRateLimit(ip) {
         }
         return { allowed: true };
     } catch (redisError) {
+        // Intentional fail-open for rate limiting to preserve Stage 1 availability during transient
+        // Redis outages; Stage 2 flag issuance and Stage 3 flag redemption inherently fail closed
+        // (HTTP 500) because their atomic state transitions require Redis Lua execution.
         console.error("[RATE_LIMIT_ERROR]", redisError.message);
         return { allowed: true };
     }

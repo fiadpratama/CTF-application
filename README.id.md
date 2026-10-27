@@ -112,4 +112,9 @@ Sebelum memasang APK, Anda dapat memverifikasi **tanda tangan sertifikat pengemb
    certutil -hashfile app-release.apk SHA256    # Windows
    ```
 
+## Lisensi & Atribusi Aset
+
+- **Kode Sumber:** Dirilis di bawah [Lisensi MIT](LICENSE).
+- **Aset Audio:** Musik latar pada layar debriefing Hall of Fame (`android_client/app/src/main/res/raw/bgm.mp3`) menggunakan karya klasik domain publik *W.A. Mozart — "Dies Irae" dari Requiem in D minor, K. 626* (1791) yang disertakan untuk keperluan presentasi edukasi.
+
 Untuk riwayat perubahan versi dan arsitektur, lihat [CHANGELOG.md](CHANGELOG.md). Untuk batasan keamanan infrastruktur dan kebijakan pelaporan kerentanan, lihat [SECURITY.md](SECURITY.md).
