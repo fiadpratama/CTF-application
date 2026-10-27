@@ -8,13 +8,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.view.View;
-import android.view.ViewGroup;
-import android.view.WindowManager;
 import android.view.animation.LinearInterpolator;
-import androidx.core.graphics.Insets;
-import androidx.core.view.OnApplyWindowInsetsListener;
 import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 import androidx.core.widget.NestedScrollView;
 
 import io.github.fiadpratama.ctfapplication.R;
@@ -74,24 +69,7 @@ public class HonorScreenManager {
         this.onSkipAction = onSkipAction;
 
         if (this.binding != null && this.activity != null) {
-            ViewCompat.setOnApplyWindowInsetsListener(this.binding.honorSkipButton, new OnApplyWindowInsetsListener() {
-                @Override
-                public WindowInsetsCompat onApplyWindowInsets(View v, WindowInsetsCompat insets) {
-                    Insets cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout());
-                    float density = activity.getResources().getDisplayMetrics().density;
-                    int baseMargin = (int) (16 * density);
-                    int topMargin = Math.max(baseMargin, cutout.top + (int) (8 * density));
-                    int endMargin = Math.max(baseMargin, cutout.right + baseMargin);
-                    ViewGroup.LayoutParams params = v.getLayoutParams();
-                    if (params instanceof ViewGroup.MarginLayoutParams) {
-                        ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) params;
-                        lp.topMargin = topMargin;
-                        lp.setMarginEnd(endMargin);
-                        v.setLayoutParams(lp);
-                    }
-                    return insets;
-                }
-            });
+            SystemUiHelper.attachSkipButtonInsets(this.activity, this.binding.honorSkipButton);
         }
     }
 
@@ -123,7 +101,7 @@ public class HonorScreenManager {
         binding.honorScroll.post(new Runnable() {
             @Override
             public void run() {
-                if (isAlive() && binding != null) {
+                if (SystemUiHelper.isActivityAlive(activity) && binding != null) {
                     binding.honorScroll.scrollTo(0, 0);
                     binding.honorScroll.setScrollY(0);
                 }
@@ -139,7 +117,7 @@ public class HonorScreenManager {
      * @param onFinished Callback invoked when cinematic completes and UI is reset
      */
     public void start(String debriefMessage, final OnCinematicFinishedListener onFinished) {
-        if (!isAlive()) return;
+        if (!SystemUiHelper.isActivityAlive(activity)) return;
 
         cancelTimeline();
         if (audioFadeAnimator != null) {
@@ -156,12 +134,8 @@ public class HonorScreenManager {
         remainingSkipDelayMs = SKIP_APPEAR_DELAY_MS;
         remainingTransitionMs = TRANSITION_TOTAL_MS;
 
-        activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-            activity.getWindow().getAttributes().layoutInDisplayCutoutMode =
-                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
-        }
-        applyImmersiveMode();
+        SystemUiHelper.setCinematicWindowMode(activity, true);
+        SystemUiHelper.applyImmersiveMode(activity);
 
         binding.honorLayout.animate().cancel();
         binding.honorSkipButton.animate().cancel();
@@ -177,7 +151,7 @@ public class HonorScreenManager {
         binding.honorScroll.post(new Runnable() {
             @Override
             public void run() {
-                if (isAlive() && binding != null) {
+                if (SystemUiHelper.isActivityAlive(activity) && binding != null) {
                     binding.honorScroll.scrollTo(0, 0);
                     binding.honorScroll.setScrollY(0);
                 }
@@ -208,7 +182,7 @@ public class HonorScreenManager {
             public void run() {
                 scrollRunnable = null;
                 remainingScrollDelayMs = 0L;
-                if (!isAlive() || !isActive || isTransitioning) return;
+                if (!SystemUiHelper.isActivityAlive(activity) || !isActive || isTransitioning) return;
                 NestedScrollView scroll = binding.honorScroll;
                 View content = scroll.getChildAt(0);
                 if (content != null) {
@@ -232,7 +206,7 @@ public class HonorScreenManager {
             public void run() {
                 skipRevealRunnable = null;
                 remainingSkipDelayMs = 0L;
-                if (!isAlive() || !isActive || isTransitioning) return;
+                if (!SystemUiHelper.isActivityAlive(activity) || !isActive || isTransitioning) return;
                 binding.honorSkipButton.setVisibility(View.VISIBLE);
                 binding.honorSkipButton.setAlpha(0.0f);
                 binding.honorSkipButton.animate().alpha(1.0f).setDuration(600).start();
@@ -245,7 +219,7 @@ public class HonorScreenManager {
             public void run() {
                 transitionRunnable = null;
                 remainingTransitionMs = 0L;
-                if (!isAlive() || !isActive || isTransitioning) return;
+                if (!SystemUiHelper.isActivityAlive(activity) || !isActive || isTransitioning) return;
                 cancelTimeline();
                 fadeAudioAndEnd(FADE_STANDARD_MS, onFinished);
             }
@@ -325,11 +299,11 @@ public class HonorScreenManager {
         binding.honorLayout.animate().alpha(0.0f).setDuration(fadeDurationMs).withEndAction(new Runnable() {
             @Override
             public void run() {
-                if (!isAlive()) return;
+                if (!SystemUiHelper.isActivityAlive(activity)) return;
                 isActive = false;
                 isTransitioning = false;
                 isPaused = false;
-                activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                SystemUiHelper.setCinematicWindowMode(activity, false);
                 releaseMediaPlayer();
 
                 resetHonorViews();
@@ -337,11 +311,7 @@ public class HonorScreenManager {
 
                 binding.mainLayout.setVisibility(View.VISIBLE);
                 binding.flagInput.setText("");
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-                    activity.getWindow().getAttributes().layoutInDisplayCutoutMode =
-                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT;
-                }
-                applyImmersiveMode();
+                SystemUiHelper.applyImmersiveMode(activity);
 
                 if (onFinished != null) {
                     onFinished.onFinished();
@@ -390,7 +360,7 @@ public class HonorScreenManager {
      */
     public void onResume() {
         if (!isActive) return;
-        applyImmersiveMode();
+        SystemUiHelper.applyImmersiveMode(activity);
 
         if (!isPaused) return;
         isPaused = false;
@@ -419,31 +389,11 @@ public class HonorScreenManager {
         }
     }
 
-    /**
-     * Enforces sticky immersive full-screen display hiding system status and navigation bars.
-     */
-    private void applyImmersiveMode() {
-        if (!isAlive()) return;
-        activity.getWindow().getDecorView().setSystemUiVisibility(
-            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-            | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-            | View.SYSTEM_UI_FLAG_FULLSCREEN);
-    }
-
     public void onDestroy() {
         isActive = false;
         isTransitioning = false;
         isPaused = false;
-        if (activity != null && !activity.isDestroyed()) {
-            activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-                activity.getWindow().getAttributes().layoutInDisplayCutoutMode =
-                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT;
-            }
-        }
+        SystemUiHelper.setCinematicWindowMode(activity, false);
         cancelTimeline();
         if (audioFadeAnimator != null) {
             audioFadeAnimator.cancel();
@@ -465,9 +415,5 @@ public class HonorScreenManager {
             }
             mediaPlayer = null;
         }
-    }
-
-    private boolean isAlive() {
-        return activity != null && !activity.isFinishing() && !activity.isDestroyed();
     }
 }

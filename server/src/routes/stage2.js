@@ -5,9 +5,8 @@
  * and delegates idempotent flag issuance to the distributed state service.
  */
 const express = require('express');
-const jwt = require('jsonwebtoken');
-const { SECRET_MULTIPLIER, JWT_SECRET } = require('../config');
-const { decryptPayload } = require('../services/crypto');
+const { SECRET_MULTIPLIER } = require('../config');
+const { decryptPayload, verifySessionToken } = require('../services/crypto');
 const { issueSessionFlag } = require('../services/vaultState');
 
 const router = express.Router();
@@ -18,15 +17,12 @@ router.post('/stage2', async (req, res) => {
         return res.status(403).json({ status: 403, error: "Forbidden", message: "Stage 1 not completed" });
     }
 
-    let decodedSession;
-    try {
-        decodedSession = jwt.verify(sessionToken, JWT_SECRET, { algorithms: ['HS256'] });
-    } catch {
+    const decodedSession = verifySessionToken(sessionToken);
+    if (!decodedSession) {
         return res.status(403).json({ status: 403, error: "Forbidden", message: "Invalid or expired session token" });
     }
 
-    if (!decodedSession ||
-        typeof decodedSession.challenge !== 'number' ||
+    if (typeof decodedSession.challenge !== 'number' ||
         !Number.isInteger(decodedSession.challenge) ||
         typeof decodedSession.jti !== 'string' ||
         !/^[0-9a-f]{32}$/.test(decodedSession.jti)) {

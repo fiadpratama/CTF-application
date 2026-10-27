@@ -1,14 +1,14 @@
-package io.github.fiadpratama.ctfapplication.util;
+package io.github.fiadpratama.ctfapplication.network;
 
 import android.os.SystemClock;
 import java.util.LinkedList;
 import java.util.Queue;
 
 /**
- * In-memory client-side rate limiter.
+ * In-memory client-side request rate limiter.
  *
- * Implements a sliding-window algorithm to throttle outbound verification requests,
- * mitigating upstream server load and guiding deliberative interaction.
+ * Implements a sliding-window algorithm to throttle outbound verification requests
+ * and synchronize server-mandated HTTP 429 cooldowns.
  */
 public class AppRateLimiter {
 
