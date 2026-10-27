@@ -33,7 +33,7 @@ public class MainActivity extends AppCompatActivity {
     private HonorScreenManager honorScreenManager;
     private VaultProtocolController protocolController;
     private final ToastHelper toastHelper = new ToastHelper();
-    private final AppRateLimiter appRateLimiter = new AppRateLimiter();
+    private AppRateLimiter appRateLimiter;
     private boolean isRequestRunning = false;
 
     static {
@@ -63,6 +63,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(binding.getRoot());
 
         soundEffects = new SoundEffectsManager();
+        appRateLimiter = new AppRateLimiter(this);
         protocolController = new VaultProtocolController(handler);
 
         SystemUiHelper.applyImmersiveMode(this);
