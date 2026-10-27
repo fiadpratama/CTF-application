@@ -43,8 +43,8 @@ static std::string decrypt(const unsigned char* encrypted, size_t length) {
 }
 
 /**
- * Introduces non-deterministic execution jitter to mitigate side-channel timing analysis
- * and preserves symbol table anchors against aggressive dead-code elimination.
+ * Applies variable-duration arithmetic jitter prior to key derivation and mixes
+ * static configuration constants into the execution state.
  */
 static void timing_noise() {
     volatile long dummy = 0;

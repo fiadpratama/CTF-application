@@ -26,7 +26,7 @@ public class VaultApiClient {
     public static final String VERIFY_FLAG_URL = BASE_URL + "/verify-flag";
 
     /**
-     * Asynchronous callback interface for HTTP responses.
+     * Callback interface for handling HTTP response payloads and transport errors.
      */
     public interface ApiCallback {
         void onResponse(int responseCode, String body);
@@ -34,7 +34,9 @@ public class VaultApiClient {
     }
 
     /**
-     * Dispatches an asynchronous HTTP POST request carrying a JSON payload.
+     * Executes a synchronous (blocking) HTTP POST request carrying a JSON payload
+     * and dispatches the result through {@link ApiCallback} on the calling thread.
+     * Must be invoked from a background worker thread.
      *
      * @param urlStr Target endpoint URL
      * @param body JSON body to transmit
