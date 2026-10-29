@@ -6,8 +6,9 @@
  */
 const express = require('express');
 const crypto = require('crypto');
-const { SECRET_MULTIPLIER } = require('../config');
-const { decryptPayload, verifyBackdoorCode, signSessionToken } = require('../services/crypto');
+const jwt = require('jsonwebtoken');
+const { BACKDOOR_CODE, SECRET_MULTIPLIER, JWT_SECRET } = require('../config');
+const { decryptPayload } = require('../services/crypto');
 
 const router = express.Router();
 
@@ -27,10 +28,19 @@ router.post('/stage1', (req, res) => {
         return res.status(400).json({ status: 400, error: "Bad Request", message: "Missing backdoor_code parameter" });
     }
 
-    if (verifyBackdoorCode(candidateBackdoor)) {
+    const candidateBuf = Buffer.from(candidateBackdoor, 'utf8');
+    const expectedBuf = Buffer.from(BACKDOOR_CODE, 'utf8');
+    const isAuthorized = candidateBuf.length === expectedBuf.length && crypto.timingSafeEqual(candidateBuf, expectedBuf);
+
+    if (isAuthorized) {
         const challengeNum = crypto.randomInt(1000, 10000);
         const jti = crypto.randomBytes(16).toString('hex');
-        const sessionToken = signSessionToken(challengeNum, jti);
+
+        const sessionToken = jwt.sign(
+            { challenge: challengeNum, jti },
+            JWT_SECRET,
+            { expiresIn: '10m', algorithm: 'HS256' }
+        );
 
         res.setHeader('X-Secret-Multiplier', Buffer.from(String(SECRET_MULTIPLIER)).toString('base64'));
         res.setHeader('X-Session-Token', sessionToken);
