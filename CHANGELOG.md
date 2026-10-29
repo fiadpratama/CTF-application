@@ -26,15 +26,15 @@ Major architectural overhaul across both client and serverless backend, introduc
   - **Lifecycle-Aware Timeline Synchronization:** Synchronized background music (`MediaPlayer`), scrolling credits (`ObjectAnimator`), and delayed transition timers across `onPause()` and `onResume()` using elapsed monotonic time (`SystemClock.elapsedRealtime()`).
   - **Session Persistence:** Added an anonymous global solve counter, retry cooldown display, and `FLAG_KEEP_SCREEN_ON` to prevent device sleep during playback.
 - **Dynamic Display Cutout & IME WindowInsets:** Implemented Jetpack `ViewCompat.setOnApplyWindowInsetsListener` on `mainLayout` (combining `systemBars()`, `displayCutout()`, and `ime()` insets for camera clearance and automatic soft-keyboard layout resizing) and on `honorSkipButton` (dynamic `displayCutout()` margin clearance).
-- **In-App Client Rate Limiting:** Added proactive client-side request throttling (`AppRateLimiter`: 10 requests/60s threshold with a 5-minute cooldown) to prevent rapid submission spamming.
+- **Persistent In-App Client Rate Limiting:** Added proactive client-side request throttling (`AppRateLimiter`: 10 requests/60s threshold with a 5-minute cooldown) backed by `SharedPreferences` so active cooldowns and request windows persist across application restarts.
 - **Automated Native Key Generation:** Integrated `generateNativeKeys` Gradle task directly into the `preBuild` lifecycle to generate native C++ headers deterministically from local secrets.
 - **Modernized Android Tooling:** Bundled Gradle Wrapper 8.5, updated Android Gradle Plugin to 8.2.2, targeted Android 14 (API 34), and standardized Java 17 toolchain.
 - **Fail-Open Rate Limit Resilience:** Added graceful fail-open fallback in rate limiting to maintain Stage 1 availability during transient Redis connectivity faults (while Stage 2 flag issuance and Stage 3 redemption remain strictly fail-closed on Redis state).
 
 ### Changed
-- **Client Architecture Modularization:** Extracted Hall of Fame lifecycle and debrief logic into `HonorScreenManager`, UI alerts into `ToastHelper`, and client-side throttling into `AppRateLimiter`, decoupling `MainActivity` responsibilities.
+- **Client Architecture Modularization:** Decoupled `MainActivity` into domain-focused packages (`crypto`, `network`, `security`, `ui`), extracting protocol orchestration into `VaultProtocolController`, Hall of Fame debrief lifecycle into `HonorScreenManager`, window/cutout/IME management into `SystemUiHelper`, tactile audio into `SoundEffectsManager`, debounced alerts into `ToastHelper`, and client throttling into `AppRateLimiter`.
 - **Codebase Documentation & Comment Standardization:** Refactored and standardized Javadoc, JSDoc, and C++ comments across both Android client (`android_client/`) and Node.js server (`server/`) modules to adhere to clean industry standards—focusing on architectural context, protocol security, and lifecycle constraints without noise or challenge spoilers.
-- **Server Modular Architecture & Route Decomposition:** Refactored monolithic `server.js` into clean architectural layers under `server/src/` (`app.js`, `routes/`, `middleware/`, `services/`, `config.js`), modularized verification endpoints into dedicated per-stage routes (`stage1.js`, `stage2.js`, `verifyFlag.js`), and isolated Redis Lua scripts inside `vaultState.js`.
+- **Server Modular Architecture & Route Decomposition:** Refactored monolithic `server.js` into clean architectural layers under `server/src/` (`app.js`, `routes/`, `middleware/`, `services/`, `config.js`), modularized verification endpoints into dedicated per-stage routes (`stage1.js`, `stage2.js`, `verifyFlag.js`), centralized cryptographic/JWT operations in `services/crypto.js`, and isolated Redis Lua scripts inside `vaultState.js`.
 - **Hall of Fame Layout & Spacing:** Standardized inter-section ASCII text spacing in `hallOfFame.js` with uniform double line breaks (`\n\n`), scaled title typography to 36sp, and enhanced section margins.
 - **UI Design System Standardization:** Extracted launcher icon colors into shared semantic color tokens (`@color/ic_launcher_background`, `@color/ic_launcher_accent`), categorized color palettes in `colors.xml`, renamed the Stage 1 action button to "DECRYPT PAYLOAD", and refined challenge subtitle styling.
 - **Terminal UI Thread Safety:** Refactored `TerminalLogger` to a thread-safe FIFO queue (`Queue<LogEntry>`) to prevent UI callback collisions and Activity context leaks.
@@ -54,7 +54,7 @@ Major architectural overhaul across both client and serverless backend, introduc
 
 ### Security
 - Enforced single-use JWT session consumption via Redis atomic state binding.
-- Added strict JSON request body schema validation and JWT claim verification (`iat`, `exp`, `jti`, `stage`, `version`).
+- Added strict JSON request body schema validation and JWT claim verification (`iat`, `exp`, `jti`, `challenge`).
 - Scoped rate limiting and version gate middlewares specifically to `/api/vault` endpoints prior to JSON body parsing.
 - Added startup environment validation ensuring required secrets (`UPSTASH_REDIS_REST_URL`, `JWT_SECRET`, etc.) are configured before server boot.
 - Upgraded `qs` dependency to resolve security vulnerability.

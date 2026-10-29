@@ -1,50 +1,39 @@
 package io.github.fiadpratama.ctfapplication;
 
-import android.content.Context;
-import android.media.AudioManager;
-import android.media.ToneGenerator;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.WindowManager;
-import android.view.inputmethod.InputMethodManager;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
 import androidx.core.splashscreen.SplashScreen;
-import androidx.core.view.OnApplyWindowInsetsListener;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 
-import java.nio.charset.StandardCharsets;
-import org.json.JSONObject;
-
-import io.github.fiadpratama.ctfapplication.crypto.CryptoHelper;
 import io.github.fiadpratama.ctfapplication.databinding.ActivityMainBinding;
-import io.github.fiadpratama.ctfapplication.network.VaultApiClient;
+import io.github.fiadpratama.ctfapplication.network.AppRateLimiter;
+import io.github.fiadpratama.ctfapplication.network.VaultProtocolController;
+import io.github.fiadpratama.ctfapplication.security.SecurityChecks;
 import io.github.fiadpratama.ctfapplication.ui.HonorScreenManager;
+import io.github.fiadpratama.ctfapplication.ui.SoundEffectsManager;
+import io.github.fiadpratama.ctfapplication.ui.SystemUiHelper;
 import io.github.fiadpratama.ctfapplication.ui.TerminalLogger;
 import io.github.fiadpratama.ctfapplication.ui.ToastHelper;
-import io.github.fiadpratama.ctfapplication.util.AppRateLimiter;
-import io.github.fiadpratama.ctfapplication.util.SecurityChecks;
 
 /**
  * Main application controller.
  *
- * Coordinates UI event dispatching, interactive terminal streaming,
- * native cryptographic handshakes, and flag verification workflows.
+ * Coordinates Activity lifecycle, JNI native symbol bindings, UI event listeners,
+ * and delegation to specialized protocol, terminal, and debriefing controllers.
  */
 public class MainActivity extends AppCompatActivity {
 
     private ActivityMainBinding binding;
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private ToneGenerator toneGen;
+    private SoundEffectsManager soundEffects;
     private TerminalLogger terminalLogger;
     private HonorScreenManager honorScreenManager;
+    private VaultProtocolController protocolController;
     private final ToastHelper toastHelper = new ToastHelper();
-    private final AppRateLimiter appRateLimiter = new AppRateLimiter();
+    private AppRateLimiter appRateLimiter;
     private boolean isRequestRunning = false;
 
     static {
@@ -73,39 +62,18 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        toneGen = new ToneGenerator(AudioManager.STREAM_SYSTEM, 100);
+        soundEffects = new SoundEffectsManager();
+        appRateLimiter = new AppRateLimiter(this);
+        protocolController = new VaultProtocolController(handler);
 
-        applyImmersiveMode();
-
-        ViewCompat.setOnApplyWindowInsetsListener(binding.mainLayout, new OnApplyWindowInsetsListener() {
-            @Override
-            public WindowInsetsCompat onApplyWindowInsets(View v, WindowInsetsCompat insets) {
-                Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
-                Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
-                int basePadding = (int) (18 * getResources().getDisplayMetrics().density);
-                int topPadding = Math.max(systemBars.top + (int) (24 * getResources().getDisplayMetrics().density), (int) (52 * getResources().getDisplayMetrics().density));
-                int bottomPadding = ime.bottom + basePadding;
-                v.setPadding(basePadding, topPadding, basePadding, bottomPadding);
-
-                if (ime.bottom > 0 && binding != null) {
-                    binding.terminalScrollView.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (isActivityAlive() && binding != null) {
-                                binding.terminalScrollView.fullScroll(View.FOCUS_DOWN);
-                            }
-                        }
-                    });
-                }
-                return insets;
-            }
-        });
+        SystemUiHelper.applyImmersiveMode(this);
+        SystemUiHelper.attachMainLayoutInsets(this, binding.mainLayout, binding.terminalScrollView);
 
         terminalLogger = new TerminalLogger(binding.terminalLogText, binding.terminalScrollView, handler);
         honorScreenManager = new HonorScreenManager(this, binding, new Runnable() {
             @Override
             public void run() {
-                playButtonTone();
+                soundEffects.playButtonBeep();
             }
         });
 
@@ -137,7 +105,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        applyImmersiveMode();
+        SystemUiHelper.applyImmersiveMode(this);
         if (honorScreenManager != null) {
             honorScreenManager.onResume();
         }
@@ -147,45 +115,23 @@ public class MainActivity extends AppCompatActivity {
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) {
-            applyImmersiveMode();
+            SystemUiHelper.applyImmersiveMode(this);
         }
     }
 
     /**
-     * Enforces sticky immersive full-screen display hiding system status and navigation bars.
-     */
-    public void applyImmersiveMode() {
-        if (!isActivityAlive()) return;
-        getWindow().getDecorView().setSystemUiVisibility(
-            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-            | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-            | View.SYSTEM_UI_FLAG_FULLSCREEN);
-    }
-
-    /**
-     * Evaluates whether the Activity is still active and safe for UI updates.
-     *
-     * @return true if Activity is neither finishing nor destroyed
-     */
-    private boolean isActivityAlive() {
-        return !isFinishing() && !isDestroyed();
-    }
-
-    /**
-     * Displays a debounced toast alert and plays an auditory tone if the notification is shown.
+     * Displays a debounced toast alert and plays an auditory alert tone if shown.
      *
      * @param message Text to display
-     * @param toneType ToneGenerator tone identifier (0 for no tone)
-     * @param toneDuration Duration of tone playback in ms
+     * @param isLongAlert true for standard error tone (500ms); false for short warning tone (200ms)
      */
-    private void showThrottledAlert(String message, int toneType, int toneDuration) {
-        if (!isActivityAlive()) return;
-        if (toastHelper.showThrottled(this, message)) {
-            if (toneGen != null && toneType != 0) {
-                toneGen.startTone(toneType, toneDuration);
+    private void showThrottledAlert(String message, boolean isLongAlert) {
+        if (!SystemUiHelper.isActivityAlive(this)) return;
+        if (toastHelper.showThrottled(this, message) && soundEffects != null) {
+            if (isLongAlert) {
+                soundEffects.playErrorAlert();
+            } else {
+                soundEffects.playShortAlert();
             }
         }
     }
@@ -196,32 +142,32 @@ public class MainActivity extends AppCompatActivity {
      * @param isEnabled true to enable user interaction; false to lock
      */
     private void setButtonsState(boolean isEnabled) {
-        if (!isActivityAlive()) return;
+        if (!SystemUiHelper.isActivityAlive(this)) return;
         binding.unlockButton.setEnabled(isEnabled);
         binding.submitFlagBtn.setEnabled(isEnabled);
     }
 
     /**
-     * Emits standard tactile beep tone on interactive button activations.
+     * Evaluates client-side rate limits prior to dispatching an outbound network request.
+     *
+     * @return true if request is permitted; false if throttled or under active cooldown
      */
-    private void playButtonTone() {
-        if (toneGen != null) {
-            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 50);
+    private boolean checkClientRateLimit() {
+        if (appRateLimiter.isBanned()) {
+            String dur = ToastHelper.formatDuration(appRateLimiter.getRemainingBanSeconds());
+            showThrottledAlert(String.format(getString(R.string.toast_rate_limited), dur), false);
+            return false;
         }
-    }
-
-    /**
-     * Dismisses the virtual software keyboard if currently active.
-     */
-    private void hideKeyboard() {
-        View view = this.getCurrentFocus();
-        if (view != null) {
-            InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-            if (imm != null) {
-                imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
-            }
+        if (isRequestRunning) {
+            return false;
         }
-        applyImmersiveMode();
+        if (!appRateLimiter.recordAndCheck()) {
+            String dur = ToastHelper.formatDuration(appRateLimiter.getRemainingBanSeconds());
+            showThrottledAlert(String.format(getString(R.string.toast_rate_limited), dur), true);
+            terminalLogger.log(getString(R.string.log_rate_limited));
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -238,30 +184,14 @@ public class MainActivity extends AppCompatActivity {
         binding.unlockButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                hideKeyboard();
-
-                if (appRateLimiter.isBanned()) {
-                    long remainingSec = appRateLimiter.getRemainingBanSeconds();
-                    String dur = ToastHelper.formatDuration(remainingSec);
-                    showThrottledAlert(String.format(getString(R.string.toast_rate_limited), dur), ToneGenerator.TONE_CDMA_ABBR_ALERT, 200);
-                    return;
-                }
-
-                if (isRequestRunning) {
-                    return;
-                }
-
-                if (!appRateLimiter.recordAndCheck()) {
-                    long remainingSec = appRateLimiter.getRemainingBanSeconds();
-                    String dur = ToastHelper.formatDuration(remainingSec);
-                    showThrottledAlert(String.format(getString(R.string.toast_rate_limited), dur), ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
-                    terminalLogger.log(getString(R.string.log_rate_limited));
+                SystemUiHelper.hideKeyboard(MainActivity.this);
+                if (!checkClientRateLimit()) {
                     return;
                 }
 
                 isRequestRunning = true;
                 setButtonsState(false);
-                playButtonTone();
+                soundEffects.playButtonBeep();
                 terminalLogger.log(getString(R.string.log_handshake_start));
                 unlockVault();
             }
@@ -270,36 +200,29 @@ public class MainActivity extends AppCompatActivity {
         binding.submitFlagBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                hideKeyboard();
-
+                SystemUiHelper.hideKeyboard(MainActivity.this);
                 if (appRateLimiter.isBanned()) {
-                    long remainingSec = appRateLimiter.getRemainingBanSeconds();
-                    String dur = ToastHelper.formatDuration(remainingSec);
-                    showThrottledAlert(String.format(getString(R.string.toast_rate_limited), dur), ToneGenerator.TONE_CDMA_ABBR_ALERT, 200);
+                    String dur = ToastHelper.formatDuration(appRateLimiter.getRemainingBanSeconds());
+                    showThrottledAlert(String.format(getString(R.string.toast_rate_limited), dur), false);
                     return;
                 }
-
                 if (isRequestRunning) {
                     return;
                 }
 
                 String flag = binding.flagInput.getText().toString().trim();
                 if (flag.isEmpty()) {
-                    showThrottledAlert(getString(R.string.toast_empty_flag), ToneGenerator.TONE_CDMA_ABBR_ALERT, 200);
+                    showThrottledAlert(getString(R.string.toast_empty_flag), false);
                     return;
                 }
 
-                if (!appRateLimiter.recordAndCheck()) {
-                    long remainingSec = appRateLimiter.getRemainingBanSeconds();
-                    String dur = ToastHelper.formatDuration(remainingSec);
-                    showThrottledAlert(String.format(getString(R.string.toast_rate_limited), dur), ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
-                    terminalLogger.log(getString(R.string.log_rate_limited));
+                if (!checkClientRateLimit()) {
                     return;
                 }
 
                 isRequestRunning = true;
                 setButtonsState(false);
-                playButtonTone();
+                soundEffects.playButtonBeep();
                 terminalLogger.log(getString(R.string.log_flag_submitting));
                 verifyFlag(flag);
             }
@@ -307,203 +230,126 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Executes the Phase 1 cryptographic handshake sequence on a background thread.
+     * Dispatches the Phase 1 cryptographic handshake sequence via {@link VaultProtocolController}.
      */
     private void unlockVault() {
-        new Thread(new Runnable() {
+        protocolController.executeStage1Handshake(getE2EKey(), new VaultProtocolController.Stage1Callback() {
             @Override
-            public void run() {
-                try {
-                    String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
-                    String hash = CryptoHelper.computeHandshakeSignature(timestamp);
-
-                    JSONObject payloadJson = new JSONObject();
-                    payloadJson.put("timestamp", timestamp);
-                    payloadJson.put("hash", hash);
-
-                    byte[] keyBytes = getE2EKey().getBytes(StandardCharsets.UTF_8);
-                    JSONObject encryptedPayload = CryptoHelper.encryptPayload(payloadJson, keyBytes);
-
-                    handler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (isActivityAlive()) {
-                                terminalLogger.log(getString(R.string.log_handshake_transmit));
-                            }
-                        }
-                    });
-
-                    VaultApiClient.postJson(VaultApiClient.STAGE1_URL, encryptedPayload, new VaultApiClient.ApiCallback() {
-                        @Override
-                        public void onResponse(final int responseCode, final String body) {
-                            final String displayMessage = VaultApiClient.extractDisplayMessage(body);
-                            handler.post(new Runnable() {
-                                @Override
-                                public void run() {
-                                    if (!isActivityAlive()) return;
-                                    terminalLogger.log("> [" + responseCode + "] " + displayMessage, new TerminalLogger.OnCompleteListener() {
-                                        @Override
-                                        public void onComplete() {
-                                            if (!isActivityAlive()) return;
-                                            if (responseCode == 429) {
-                                                int retrySec = VaultApiClient.extractRetryAfterSeconds(body, 300);
-                                                appRateLimiter.applyServerBan(retrySec);
-                                                String formattedDur = ToastHelper.formatDuration(retrySec);
-                                                showThrottledAlert(String.format(getString(R.string.toast_rate_limited), formattedDur), ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
-                                            } else if (responseCode != 200) {
-                                                if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
-                                            }
-                                            isRequestRunning = false;
-                                            setButtonsState(true);
-                                        }
-                                    });
-                                }
-                            });
-                        }
-
-                        @Override
-                        public void onError(final String errorCode) {
-                            handler.post(new Runnable() {
-                                @Override
-                                public void run() {
-                                    if (!isActivityAlive()) return;
-                                    terminalLogger.log(translateErrorCode(errorCode), new TerminalLogger.OnCompleteListener() {
-                                        @Override
-                                        public void onComplete() {
-                                            if (!isActivityAlive()) return;
-                                            if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
-                                            isRequestRunning = false;
-                                            setButtonsState(true);
-                                        }
-                                    });
-                                }
-                            });
-                        }
-                    });
-
-                } catch (final Exception e) {
-                    handler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (!isActivityAlive()) return;
-                            terminalLogger.log(getString(R.string.err_unexpected), new TerminalLogger.OnCompleteListener() {
-                                @Override
-                                public void onComplete() {
-                                    if (!isActivityAlive()) return;
-                                    isRequestRunning = false;
-                                    setButtonsState(true);
-                                }
-                            });
-                        }
-                    });
+            public void onTransmitting() {
+                if (SystemUiHelper.isActivityAlive(MainActivity.this)) {
+                    terminalLogger.log(getString(R.string.log_handshake_transmit));
                 }
             }
-        }).start();
-    }
 
-    /**
-     * Submits candidate flag to the remote server for validation and Hall of Fame unlocking.
-     *
-     * @param flag Submitted challenge flag
-     */
-    private void verifyFlag(final String flag) {
-        new Thread(new Runnable() {
             @Override
-            public void run() {
-                JSONObject json = new JSONObject();
-                try {
-                    json.put("flag", flag);
-                } catch (Exception e) {
-                    handler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (!isActivityAlive()) return;
-                            terminalLogger.log(getString(R.string.err_unexpected), new TerminalLogger.OnCompleteListener() {
-                                @Override
-                                public void onComplete() {
-                                    if (!isActivityAlive()) return;
-                                    isRequestRunning = false;
-                                    setButtonsState(true);
-                                }
-                            });
+            public void onResult(final int responseCode, String displayMessage) {
+                if (!SystemUiHelper.isActivityAlive(MainActivity.this)) return;
+                terminalLogger.log("> [" + responseCode + "] " + displayMessage, new TerminalLogger.OnCompleteListener() {
+                    @Override
+                    public void onComplete() {
+                        if (!SystemUiHelper.isActivityAlive(MainActivity.this)) return;
+                        if (responseCode != 200) {
+                            soundEffects.playErrorAlert();
                         }
-                    });
-                    return;
-                }
-
-                VaultApiClient.postJson(VaultApiClient.VERIFY_FLAG_URL, json, new VaultApiClient.ApiCallback() {
-                    @Override
-                    public void onResponse(final int responseCode, final String body) {
-                        handler.post(new Runnable() {
-                            @Override
-                            public void run() {
-                                if (!isActivityAlive()) return;
-                                if (responseCode == 200) {
-                                    try {
-                                        JSONObject resJson = new JSONObject(body);
-                                        isRequestRunning = false;
-                                        honorScreenManager.start(resJson.getString("message"), new HonorScreenManager.OnCinematicFinishedListener() {
-                                            @Override
-                                            public void onFinished() {
-                                                terminalLogger.clear();
-                                                setButtonsState(true);
-                                                terminalLogger.log(getString(R.string.log_system_rebooted));
-                                            }
-                                        });
-                                    } catch (Exception e) {
-                                        terminalLogger.log(getString(R.string.err_unexpected), new TerminalLogger.OnCompleteListener() {
-                                            @Override
-                                            public void onComplete() {
-                                                if (!isActivityAlive()) return;
-                                                isRequestRunning = false;
-                                                setButtonsState(true);
-                                            }
-                                        });
-                                    }
-                                } else {
-                                    final String displayMessage = VaultApiClient.extractDisplayMessage(body);
-                                    terminalLogger.log("> [" + responseCode + "] " + displayMessage, new TerminalLogger.OnCompleteListener() {
-                                        @Override
-                                        public void onComplete() {
-                                            if (!isActivityAlive()) return;
-                                            if (responseCode == 429) {
-                                                int retrySec = VaultApiClient.extractRetryAfterSeconds(body, 300);
-                                                appRateLimiter.applyServerBan(retrySec);
-                                                String formattedDur = ToastHelper.formatDuration(retrySec);
-                                                showThrottledAlert(String.format(getString(R.string.toast_rate_limited), formattedDur), ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
-                                            } else {
-                                                if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
-                                            }
-                                            isRequestRunning = false;
-                                            setButtonsState(true);
-                                        }
-                                    });
-                                }
-                            }
-                        });
-                    }
-
-                    @Override
-                    public void onError(final String errorCode) {
-                        handler.post(new Runnable() {
-                            @Override
-                            public void run() {
-                                if (!isActivityAlive()) return;
-                                terminalLogger.log(translateErrorCode(errorCode), new TerminalLogger.OnCompleteListener() {
-                                    @Override
-                                    public void onComplete() {
-                                        if (!isActivityAlive()) return;
-                                        if (toneGen != null) toneGen.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500);
-                                        isRequestRunning = false;
-                                        setButtonsState(true);
-                                    }
-                                });
-                            }
-                        });
+                        isRequestRunning = false;
+                        setButtonsState(true);
                     }
                 });
             }
-        }).start();
+
+            @Override
+            public void onRateLimited(int responseCode, String displayMessage, final int retryAfterSeconds) {
+                handleRateLimitedResponse(responseCode, displayMessage, retryAfterSeconds);
+            }
+
+            @Override
+            public void onError(String errorCode) {
+                handleTransportError(errorCode);
+            }
+        });
+    }
+
+    /**
+     * Dispatches candidate flag verification via {@link VaultProtocolController}.
+     *
+     * @param flag Submitted challenge flag
+     */
+    private void verifyFlag(String flag) {
+        protocolController.verifyFlag(flag, new VaultProtocolController.FlagVerifyCallback() {
+            @Override
+            public void onVerified(String debriefMessage) {
+                if (!SystemUiHelper.isActivityAlive(MainActivity.this)) return;
+                isRequestRunning = false;
+                honorScreenManager.start(debriefMessage, new HonorScreenManager.OnCinematicFinishedListener() {
+                    @Override
+                    public void onFinished() {
+                        terminalLogger.clear();
+                        setButtonsState(true);
+                        terminalLogger.log(getString(R.string.log_system_rebooted));
+                    }
+                });
+            }
+
+            @Override
+            public void onRejected(int responseCode, String displayMessage) {
+                if (!SystemUiHelper.isActivityAlive(MainActivity.this)) return;
+                terminalLogger.log("> [" + responseCode + "] " + displayMessage, new TerminalLogger.OnCompleteListener() {
+                    @Override
+                    public void onComplete() {
+                        if (!SystemUiHelper.isActivityAlive(MainActivity.this)) return;
+                        soundEffects.playErrorAlert();
+                        isRequestRunning = false;
+                        setButtonsState(true);
+                    }
+                });
+            }
+
+            @Override
+            public void onRateLimited(int responseCode, String displayMessage, int retryAfterSeconds) {
+                handleRateLimitedResponse(responseCode, displayMessage, retryAfterSeconds);
+            }
+
+            @Override
+            public void onError(String errorCode) {
+                handleTransportError(errorCode);
+            }
+        });
+    }
+
+    /**
+     * Handles HTTP 429 rate-limited responses uniformly across stages.
+     */
+    private void handleRateLimitedResponse(int responseCode, String displayMessage, final int retryAfterSeconds) {
+        if (!SystemUiHelper.isActivityAlive(this)) return;
+        terminalLogger.log("> [" + responseCode + "] " + displayMessage, new TerminalLogger.OnCompleteListener() {
+            @Override
+            public void onComplete() {
+                if (!SystemUiHelper.isActivityAlive(MainActivity.this)) return;
+                appRateLimiter.applyServerBan(retryAfterSeconds);
+                String formattedDur = ToastHelper.formatDuration(retryAfterSeconds);
+                showThrottledAlert(String.format(getString(R.string.toast_rate_limited), formattedDur), true);
+                isRequestRunning = false;
+                setButtonsState(true);
+            }
+        });
+    }
+
+    /**
+     * Handles network transport or unexpected protocol exceptions uniformly.
+     */
+    private void handleTransportError(final String errorCode) {
+        if (!SystemUiHelper.isActivityAlive(this)) return;
+        terminalLogger.log(translateErrorCode(errorCode), new TerminalLogger.OnCompleteListener() {
+            @Override
+            public void onComplete() {
+                if (!SystemUiHelper.isActivityAlive(MainActivity.this)) return;
+                if (!"UNEXPECTED".equals(errorCode)) {
+                    soundEffects.playErrorAlert();
+                }
+                isRequestRunning = false;
+                setButtonsState(true);
+            }
+        });
     }
 
     /**
@@ -532,9 +378,9 @@ public class MainActivity extends AppCompatActivity {
         if (toastHelper != null) {
             toastHelper.dismiss();
         }
-        if (toneGen != null) {
-            toneGen.release();
-            toneGen = null;
+        if (soundEffects != null) {
+            soundEffects.release();
+            soundEffects = null;
         }
         handler.removeCallbacksAndMessages(null);
     }

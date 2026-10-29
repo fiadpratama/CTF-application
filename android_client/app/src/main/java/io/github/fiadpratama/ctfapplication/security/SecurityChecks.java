@@ -1,5 +1,6 @@
-package io.github.fiadpratama.ctfapplication.util;
+package io.github.fiadpratama.ctfapplication.security;
 
+import android.os.Build;
 import java.io.File;
 
 /**
@@ -8,9 +9,13 @@ import java.io.File;
  * Checks device characteristics and filesystem artifacts for virtualization (emulators)
  * or privileged execution (root) environments to support diagnostic telemetry.
  */
-public class SecurityChecks {
+public final class SecurityChecks {
 
     private static Boolean cachedCompromised = null;
+
+    private SecurityChecks() {
+        // Utility class
+    }
 
     /**
      * Inspects build properties and hardware signatures for Android emulator artifacts.
@@ -18,22 +23,22 @@ public class SecurityChecks {
      * @return true if emulator characteristics are detected
      */
     public static boolean isEmulator() {
-        return (android.os.Build.BRAND.startsWith("generic") && android.os.Build.DEVICE.startsWith("generic"))
-            || android.os.Build.FINGERPRINT.startsWith("generic")
-            || android.os.Build.FINGERPRINT.startsWith("unknown")
-            || android.os.Build.HARDWARE.contains("goldfish")
-            || android.os.Build.HARDWARE.contains("ranchu")
-            || android.os.Build.MODEL.contains("google_sdk")
-            || android.os.Build.MODEL.contains("Emulator")
-            || android.os.Build.MODEL.contains("Android SDK built for x86")
-            || android.os.Build.MANUFACTURER.contains("Genymotion")
-            || android.os.Build.PRODUCT.contains("sdk_google")
-            || android.os.Build.PRODUCT.contains("google_sdk")
-            || android.os.Build.PRODUCT.contains("sdk")
-            || android.os.Build.PRODUCT.contains("sdk_x86")
-            || android.os.Build.PRODUCT.contains("vbox86p")
-            || android.os.Build.PRODUCT.contains("emulator")
-            || android.os.Build.PRODUCT.contains("simulator");
+        return (Build.BRAND.startsWith("generic") && Build.DEVICE.startsWith("generic"))
+            || Build.FINGERPRINT.startsWith("generic")
+            || Build.FINGERPRINT.startsWith("unknown")
+            || Build.HARDWARE.contains("goldfish")
+            || Build.HARDWARE.contains("ranchu")
+            || Build.MODEL.contains("google_sdk")
+            || Build.MODEL.contains("Emulator")
+            || Build.MODEL.contains("Android SDK built for x86")
+            || Build.MANUFACTURER.contains("Genymotion")
+            || Build.PRODUCT.contains("sdk_google")
+            || Build.PRODUCT.contains("google_sdk")
+            || Build.PRODUCT.contains("sdk")
+            || Build.PRODUCT.contains("sdk_x86")
+            || Build.PRODUCT.contains("vbox86p")
+            || Build.PRODUCT.contains("emulator")
+            || Build.PRODUCT.contains("simulator");
     }
 
     /**
@@ -69,17 +74,5 @@ public class SecurityChecks {
             cachedCompromised = isEmulator() || isRooted();
         }
         return cachedCompromised;
-    }
-
-    /**
-     * Generates a concise diagnostic status string for terminal output.
-     *
-     * @return Formatted status log string
-     */
-    public static String getEnvironmentSummary() {
-        if (isCompromised()) {
-            return "> [SYS] Environment: Non-standard runtime detected (Sandbox/Root).";
-        }
-        return "> [SYS] Environment: Standard hardware runtime verified.";
     }
 }

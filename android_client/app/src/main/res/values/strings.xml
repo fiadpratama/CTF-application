@@ -31,6 +31,6 @@
     <string name="err_unexpected">&gt; [500] Internal server error</string>
 
     <!-- Toast Notifications (Bottom-Center Pop-ups) -->
-    <string name="toast_rate_limited">Too many requests. Please retry in %s.</string>
-    <string name="toast_empty_flag">Please enter a challenge flag before submitting.</string>
+    <string name="toast_rate_limited">Rate limited. Retry in %s</string>
+    <string name="toast_empty_flag">Enter a flag first</string>
 </resources>
