@@ -30,10 +30,10 @@
 <details>
 <summary>Membangun dari Kode Sumber (Opsional untuk Pengembangan Lokal)</summary>
 
-Untuk mengompilasi klien Android secara lokal menggunakan konfigurasi kunci tiruan:
+Untuk mengompilasi klien Android secara lokal menggunakan konfigurasi kunci *dummy* 32-byte:
 
 ```bash
-# 1. Buat berkas konfigurasi rahasia native lokal dari templat
+# 1. Buat berkas konfigurasi rahasia native lokal dari templat dummy 32-byte
 cp android_client/app/src/main/cpp/native-secrets.properties.example android_client/app/src/main/cpp/native-secrets.properties
 
 # 2. Kompilasi APK rilis melalui Gradle Wrapper
@@ -42,7 +42,9 @@ cd android_client
 gradlew.bat assembleRelease    # Windows
 ```
 
-Berkas APK hasil kompilasi akan tersedia di `android_client/app/build/outputs/apk/release/app-release.apk`.
+- **Penandatanganan Lokal (*Local Signing*):** Apabila berkas `android_client/keystore.properties` tidak ditemukan, Gradle secara otomatis menggunakan konfigurasi *debug signing* bawaan Android sehingga kompilasi lokal langsung berhasil tanpa memerlukan *keystore* produksi. Untuk menandatangani dengan *keystore* kustom, buat berkas `android_client/keystore.properties` yang memuat `storeFile`, `storePassword`, `keyAlias`, dan `keyPassword`.
+- **Catatan:** APK yang dikompilasi secara lokal menggunakan kunci *dummy* dari `native-secrets.properties` dan tidak akan terautentikasi ke server produksi kecuali dipasangkan dengan server lokal yang memiliki konfigurasi serupa.
+- **Lokasi Keluaran:** `android_client/app/build/outputs/apk/release/app-release.apk`
 </details>
 
 ## Tahapan Asesmen & Panduan Bertingkat
@@ -89,7 +91,7 @@ Kirimkan flag yang telah diterbitkan untuk memverifikasi penyelesaian tantangan 
 
 - **Aturan Pengujian:** Pengujian dibatasi pada analisis biner, inspeksi protokol, dan pengiriman request terukur. Serangan *brute-force* otomatis, *fuzzing* berintensitas tinggi, atau pengujian *Denial of Service* (DoS) terhadap infrastruktur aktif dilarang keras.
 - **Privasi Data:** Aplikasi ini tidak mengumpulkan atau menyimpan data pribadi. Jangan mengirimkan kredensial pribadi atau informasi sensitif di dalam payload.
-- **Pembatasan Laju & Telemetri:** Alamat IP klien diproses secara sementara (*ephemeral*) di memori dengan masa kedaluwarsa otomatis semata-mata untuk penegakan *rate limit* dan mitigasi penyalahgunaan otomatis. Penyelesaian tantangan hanya dicatat melalui penghitung global anonim.
+- **Pembatasan Laju & Telemetri:** Alamat IP klien diproses secara sementara (*ephemeral*) pada penyimpanan state terdistribusi Redis dengan masa kedaluwarsa (TTL) otomatis semata-mata untuk penegakan *rate limit* dan mitigasi penyalahgunaan otomatis. Penyelesaian tantangan hanya dicatat melalui penghitung global anonim.
 
 ## Verifikasi Keaslian Rilis
 
@@ -115,6 +117,6 @@ Sebelum memasang APK, Anda dapat memverifikasi **tanda tangan sertifikat pengemb
 ## Lisensi & Atribusi Aset
 
 - **Kode Sumber:** Dirilis di bawah [Lisensi MIT](LICENSE).
-- **Aset Audio:** Musik latar pada layar debriefing Hall of Fame (`android_client/app/src/main/res/raw/bgm.mp3`) menggunakan karya klasik domain publik *W.A. Mozart — "Dies Irae" dari Requiem in D minor, K. 626* (1791) yang disertakan untuk keperluan presentasi edukasi.
+- **Aset Audio:** Musik latar pada layar debriefing Hall of Fame (`android_client/app/src/main/res/raw/bgm.mp3`) menggunakan komposisi klasik domain publik *W.A. Mozart — "Dies Irae" dari Requiem in D minor, K. 626* (1791) yang disertakan khusus untuk keperluan presentasi edukasi non-komersial.
 
 Untuk riwayat perubahan versi dan arsitektur, lihat [CHANGELOG.md](CHANGELOG.md). Untuk batasan keamanan infrastruktur dan kebijakan pelaporan kerentanan, lihat [SECURITY.md](SECURITY.md).

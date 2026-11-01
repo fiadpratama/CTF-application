@@ -8,9 +8,10 @@
  * Native Cryptographic & Anti-Analysis Engine (JNI Layer)
  *
  * Implements compile-time credential recovery, bitwise deobfuscation,
- * dynamic timing perturbation, and passive TracerPid anti-debugging detection.
+ * dynamic timing perturbation, and passive TracerPid inspection.
  */
 
+// Intentional static decoy symbols retained in .rodata for binary analysis exercises
 extern "C" __attribute__((used, visibility("default")))
 const char FALLBACK_CIPHER_KEY[]     = "AES_KEY_IS_SUPER_SECRET_99182";
 
@@ -61,7 +62,8 @@ static void timing_noise() {
 }
 
 /**
- * Inspects Linux process status (/proc/self/status) to detect active ptrace or debugger attachments.
+ * Performs passive TracerPid inspection on /proc/self/status to detect standard
+ * ptrace or debugger attachments during challenge runtime analysis.
  *
  * @return true if TracerPid is non-zero
  */

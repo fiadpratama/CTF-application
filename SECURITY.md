@@ -13,9 +13,9 @@
 
 Although the repository source code is publicly available for educational reference, live operational credentials and state boundaries are isolated from version control:
 
-- **Secret Isolation:** Client cryptographic material is generated locally at build time from git-ignored configuration files (`native-secrets.properties`), while backend decryption keys, session signing secrets, and database credentials are injected exclusively through server environment variables.
-- **Session & Flag Integrity:** Challenge sessions and issued flags are cryptographically signed or registered in distributed server state with strict expiration windows, single-use session consumption (`jti`), and atomic single-solve-increment flag redemption with a bounded idempotent retry window.
-- **Abuse Mitigation:** The backend enforces request payload size limits, schema validation, client version gating, and distributed IP rate limiting with progressive cooldowns to protect service availability.
+- **Secret Isolation:** Client cryptographic material is generated locally at build time from git-ignored configuration files (`native-secrets.properties`), while backend decryption keys, session signing secrets (`JWT_SECRET`), and database credentials are injected exclusively through server environment variables. Note that the client cipher key and handshake token embedded inside the official release APK are intentionally designed to be recoverable through reverse engineering as part of the challenge, whereas server-only secrets (`JWT_SECRET` and Redis credentials) never leave the backend.
+- **Session & Flag Integrity:** Challenge sessions and issued flags are cryptographically signed or registered in distributed server state with strict expiration windows, one-time flag issuance per session (`jti`) with idempotent retry support, and atomic single-solve-increment flag redemption within a bounded retry grace window.
+- **Abuse Mitigation:** The backend enforces request payload size limits, strict schema and integer header validation, client version gating, and fail-closed distributed IP rate limiting with progressive cooldowns to protect service availability.
 - **Credential Lifecycle:** Legacy development keys, signing keystores, and retired challenge tokens from pre-v2.0.0 releases have been permanently rotated and invalidated. See [CHANGELOG.md](CHANGELOG.md) for historical release milestones.
 
 ## Supported Versions
