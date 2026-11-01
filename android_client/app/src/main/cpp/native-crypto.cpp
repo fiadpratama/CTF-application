@@ -11,7 +11,6 @@
  * dynamic timing perturbation, and passive TracerPid inspection.
  */
 
-// Intentional static decoy symbols retained in .rodata for binary analysis exercises
 extern "C" __attribute__((used, visibility("default")))
 const char FALLBACK_CIPHER_KEY[]     = "AES_KEY_IS_SUPER_SECRET_99182";
 

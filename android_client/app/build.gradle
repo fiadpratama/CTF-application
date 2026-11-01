@@ -48,7 +48,6 @@ android {
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            // Use official release keystore when configured; fall back to debug signing for local source builds
             signingConfig hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
         }
     }

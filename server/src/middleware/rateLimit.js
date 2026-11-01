@@ -149,8 +149,6 @@ async function checkRateLimit(ip) {
         }
         return { allowed: true };
     } catch (redisError) {
-        // Fail-closed on Redis connectivity faults to prevent unthrottled cryptographic
-        // or protocol brute-forcing when distributed state is unreachable.
         console.error("[RATE_LIMIT_ERROR]", redisError.message);
         return { allowed: false, unavailable: true };
     }

@@ -16,7 +16,6 @@ const verifyFlagRouter = require('./routes/verifyFlag');
 const app = express();
 
 app.disable('x-powered-by');
-// Trust single-hop reverse proxy (Vercel Edge Network) for accurate req.ip resolution
 app.set('trust proxy', 1);
 
 app.use('/api/vault', rateLimitMiddleware, versionGateMiddleware);
