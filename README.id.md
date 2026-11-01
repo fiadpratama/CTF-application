@@ -8,7 +8,7 @@
 
 ## Gambaran Sistem
 
-- **Klien Seluler:** Aplikasi Android (`Android 8.0+ / API 26+`, menargetkan `API 34`) yang memadukan antarmuka Java dengan modul kriptografi native C++ (JNI).
+- **Klien Seluler:** Aplikasi Android (`Android 8.0+ / API 26+`, menargetkan `API 36`) yang memadukan antarmuka Java dengan modul kriptografi native C++ (JNI).
 - **Backend Verifikasi:** Layanan REST Node.js modular yang menegakkan kompatibilitas versi klien, validasi sesi berbasis *state*, serta mitigasi penyalahgunaan otomatis.
 - **Keamanan Transportasi:** Enkripsi simetris terautentikasi yang melindungi payload komunikasi klien-server melalui HTTPS.
 

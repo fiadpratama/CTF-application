@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.1] - 2026-11-01
+
+Toolchain modernization, Android 16 (API 36) & 16 KB ELF page size compatibility, window inset controller upgrades, and server dependency updates.
+
+### Changed
+- **Android Build & Native Toolchain Upgrade:** Upgraded Gradle Wrapper to `9.3.1`, Android Gradle Plugin (AGP) to `8.11.1`, `compileSdk` and `targetSdk` to `36` (Android 16) with `buildToolsVersion "36.0.0"`, and pinned Android NDK to `26.1.10909125` (`versionCode` 9, `versionName` "2.0.1").
+- **16 KB ELF Page Size Alignment:** Added `-Wl,-z,max-page-size=16384` linker flag in `CMakeLists.txt` to ensure `libnative-crypto.so` complies with 16 KB page-size kernel requirements on Android 15/16+ devices.
+- **Jetpack UI & WindowInsets Modernization:** Upgraded `androidx.appcompat:appcompat` to `1.7.0` and `com.google.android.material:material` to `1.12.0`, refactored `SystemUiHelper.applyImmersiveMode()` to use `WindowCompat.getInsetsController()` (`WindowInsetsControllerCompat`), and added bottom `systemBars()` inset protection alongside `ime()` insets.
+- **Server Runtime & Package Alignment:** Upgraded `@upstash/redis` to `^1.40.0`, synchronized package version to `2.0.1`, and declared `"engines": { "node": ">=20.0.0" }` in `server/package.json`.
+
+### Fixed
+- **Release Keystore Path Resolution:** Resolved relative path resolution for `storeFile` in `android_client/app/build.gradle` (`file(keystoreProperties['storeFile'])`) so local release builds automatically use `app/keystore.jks` when configured.
+
+---
+
 ## [2.0.0] - 2026-10-25
 
 Major architectural overhaul across both client and serverless backend, introducing distributed state management via Redis, atomic Lua scripting, stateless JWT session tokens, modernized Android build tooling, immersive UI debrief experience, and hardened native binary defenses.

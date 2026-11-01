@@ -1,13 +1,16 @@
 {
   "name": "ctf-application-api",
-  "version": "1.0.0",
+  "version": "2.0.1",
   "description": "Secure API Server for CTF Vault",
   "main": "server.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "@upstash/redis": "^1.38.3",
+    "@upstash/redis": "^1.40.0",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3"
   }
