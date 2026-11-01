@@ -3,7 +3,8 @@
  * 
  * Implements a dual fixed-window rate evaluator (60s sustained quota + 10s rapid burst detection)
  * with progressive ban escalation (30 min -> 1 hour -> 3 hours) and 24-hour sliding violation
- * retention using an atomic Redis Lua script.
+ * retention using an atomic Redis Lua script. Enforces fail-closed protection (HTTP 503) if the
+ * distributed Redis state store is unreachable.
  */
 const redis = require('../services/redis');
 
@@ -100,10 +101,25 @@ function formatRetry(seconds) {
 }
 
 /**
+ * Extracts and normalizes the client IP address from platform proxy headers.
+ * Prioritizes Vercel's edge-injected 'x-real-ip' header before falling back to Express 'req.ip'.
+ *
+ * @param {import('express').Request} req - Express request object
+ * @returns {string} Normalized client IP identifier
+ */
+function resolveClientIp(req) {
+    const edgeRealIp = req.headers['x-real-ip'];
+    const rawIp = (typeof edgeRealIp === 'string' && edgeRealIp.trim() !== '')
+        ? edgeRealIp.trim()
+        : (req.ip || 'unknown');
+    return rawIp.replace(/^::ffff:/, '');
+}
+
+/**
  * Evaluates whether the request IP has exceeded rate limit thresholds.
  * 
  * @param {string} ip - Client IP address
- * @returns {Promise<{allowed: boolean, retryAfter?: number}>} Rate check decision
+ * @returns {Promise<{allowed: boolean, retryAfter?: number, unavailable?: boolean}>} Rate check decision
  */
 async function checkRateLimit(ip) {
     try {
@@ -133,11 +149,8 @@ async function checkRateLimit(ip) {
         }
         return { allowed: true };
     } catch (redisError) {
-        // Intentional fail-open for rate limiting to preserve Stage 1 availability during transient
-        // Redis outages; Stage 2 flag issuance and Stage 3 flag redemption inherently fail closed
-        // (HTTP 500) because their atomic state transitions require Redis Lua execution.
         console.error("[RATE_LIMIT_ERROR]", redisError.message);
-        return { allowed: true };
+        return { allowed: false, unavailable: true };
     }
 }
 
@@ -145,8 +158,16 @@ async function checkRateLimit(ip) {
  * Express middleware to enforce request rate limits.
  */
 async function rateLimitMiddleware(req, res, next) {
-    const result = await checkRateLimit(req.ip);
+    const clientIp = resolveClientIp(req);
+    const result = await checkRateLimit(clientIp);
     if (!result.allowed) {
+        if (result.unavailable) {
+            return res.status(503).json({
+                status: 503,
+                error: "Service Unavailable",
+                message: "Service temporarily unavailable, please retry shortly"
+            });
+        }
         res.set('Retry-After', String(result.retryAfter));
         return res.status(429).json({
             status: 429,

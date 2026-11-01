@@ -7,6 +7,9 @@ def keystoreProperties = new Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
+def hasReleaseKeystore = keystorePropertiesFile.exists() &&
+    keystoreProperties['storeFile'] != null &&
+    rootProject.file(keystoreProperties['storeFile']).exists()
 
 android {
     namespace 'io.github.fiadpratama.ctfapplication'
@@ -32,10 +35,12 @@ android {
 
     signingConfigs {
         release {
-            storeFile file(keystoreProperties['storeFile'] ?: 'keystore.jks')
-            storePassword keystoreProperties['storePassword']
-            keyAlias keystoreProperties['keyAlias']
-            keyPassword keystoreProperties['keyPassword']
+            if (hasReleaseKeystore) {
+                storeFile rootProject.file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
         }
     }
 
@@ -43,7 +48,7 @@ android {
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            signingConfig hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
         }
     }
 

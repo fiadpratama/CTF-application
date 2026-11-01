@@ -30,10 +30,10 @@ English | [Bahasa Indonesia](README.id.md)
 <details>
 <summary>Building from Source (Optional Local Setup)</summary>
 
-To compile the Android client locally using mock secrets:
+To compile the Android client locally using dummy 32-byte placeholder secrets:
 
 ```bash
-# 1. Create a local native secrets configuration from the template
+# 1. Create a local native secrets configuration from the 32-byte dummy template
 cp android_client/app/src/main/cpp/native-secrets.properties.example android_client/app/src/main/cpp/native-secrets.properties
 
 # 2. Compile the release APK via Gradle Wrapper
@@ -42,7 +42,9 @@ cd android_client
 gradlew.bat assembleRelease    # Windows
 ```
 
-The compiled package is generated at `android_client/app/build/outputs/apk/release/app-release.apk`.
+- **Local Signing Behavior:** If `android_client/keystore.properties` is not present, Gradle automatically falls back to standard Android debug signing so local builds succeed out of the box. To sign with a custom keystore, create `android_client/keystore.properties` defining `storeFile`, `storePassword`, `keyAlias`, and `keyPassword`.
+- **Note:** A locally compiled APK uses dummy keys from `native-secrets.properties` and will not authenticate against the live production backend unless paired with a matching local server instance.
+- **Output Path:** `android_client/app/build/outputs/apk/release/app-release.apk`
 </details>
 
 ## Assessment Phases & Guidance
@@ -89,7 +91,7 @@ Submit the issued flag to verify completion and trigger the Hall of Fame debrief
 
 - **Rules of Engagement:** Testing must remain limited to binary analysis, protocol inspection, and controlled request crafting. Automated brute-force attacks, high-rate fuzzing, or denial-of-service testing against the live backend are strictly prohibited.
 - **Data Privacy:** This application does not collect or store personal data. Do not submit personal credentials or sensitive information in request payloads.
-- **Rate Limiting & Telemetry:** Client IP addresses are processed ephemerally in memory with automatic expiration strictly to enforce rate limits and mitigate automated abuse. Completed assessments are recorded solely through an anonymous global counter.
+- **Rate Limiting & Telemetry:** Client IP addresses are processed ephemerally in distributed Redis state with automatic TTL expiration strictly to enforce rate limits and mitigate automated abuse. Completed assessments are recorded solely through an anonymous global counter.
 
 ## Release Verification
 
@@ -115,6 +117,6 @@ Before installing the APK, you can independently verify both its **developer sig
 ## License & Asset Attribution
 
 - **Source Code:** Released under the [MIT License](LICENSE).
-- **Audio Asset:** The Hall of Fame debriefing score (`android_client/app/src/main/res/raw/bgm.mp3`) features *W.A. Mozart — "Dies Irae" from Requiem in D minor, K. 626*, a public-domain classical composition (1791) included for educational presentation.
+- **Audio Asset:** The Hall of Fame debriefing score (`android_client/app/src/main/res/raw/bgm.mp3`) features *W.A. Mozart — "Dies Irae" from Requiem in D minor, K. 626* (1791, public-domain composition), included solely for non-commercial educational presentation.
 
 For version history and architectural changes, see [CHANGELOG.md](CHANGELOG.md). For infrastructure security boundaries and vulnerability reporting, see [SECURITY.md](SECURITY.md).
