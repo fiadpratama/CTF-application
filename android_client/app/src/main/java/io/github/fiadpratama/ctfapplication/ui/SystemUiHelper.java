@@ -10,7 +10,9 @@ import android.view.inputmethod.InputMethodManager;
 import androidx.core.graphics.Insets;
 import androidx.core.view.OnApplyWindowInsetsListener;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.core.widget.NestedScrollView;
 
 /**
@@ -42,13 +44,12 @@ public final class SystemUiHelper {
      */
     public static void applyImmersiveMode(Activity activity) {
         if (!isActivityAlive(activity)) return;
-        activity.getWindow().getDecorView().setSystemUiVisibility(
-            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-            | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-            | View.SYSTEM_UI_FLAG_FULLSCREEN);
+        WindowCompat.setDecorFitsSystemWindows(activity.getWindow(), false);
+        WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(
+            activity.getWindow(), activity.getWindow().getDecorView());
+        controller.setSystemBarsBehavior(
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+        controller.hide(WindowInsetsCompat.Type.systemBars());
     }
 
     /**
@@ -74,17 +75,18 @@ public final class SystemUiHelper {
      * @param activity Target Activity instance
      * @param active true to enable keep-screen-on and short-edges cutout mode; false to restore defaults
      */
+    @SuppressWarnings("deprecation")
     public static void setCinematicWindowMode(Activity activity, boolean active) {
         if (activity == null || activity.isDestroyed()) return;
         if (active) {
             activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && Build.VERSION.SDK_INT < 35) {
                 activity.getWindow().getAttributes().layoutInDisplayCutoutMode =
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
             }
         } else {
             activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && Build.VERSION.SDK_INT < 35) {
                 activity.getWindow().getAttributes().layoutInDisplayCutoutMode =
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT;
             }
@@ -112,7 +114,7 @@ public final class SystemUiHelper {
                 float density = activity.getResources().getDisplayMetrics().density;
                 int basePadding = (int) (18 * density);
                 int topPadding = Math.max(systemBars.top + (int) (24 * density), (int) (52 * density));
-                int bottomPadding = ime.bottom + basePadding;
+                int bottomPadding = Math.max(ime.bottom, systemBars.bottom) + basePadding;
                 v.setPadding(basePadding, topPadding, basePadding, bottomPadding);
 
                 if (ime.bottom > 0 && terminalScrollView != null) {

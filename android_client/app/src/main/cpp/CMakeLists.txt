@@ -15,7 +15,8 @@ target_link_libraries(
         native-crypto
         ${log-lib})
 
-# Strip unneeded symbol tables in release builds to optimize binary size and resilience
+target_link_options(native-crypto PRIVATE -Wl,-z,max-page-size=16384)
+
 if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     target_link_options(native-crypto PRIVATE -s)
 endif()

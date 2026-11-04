@@ -8,7 +8,7 @@ English | [Bahasa Indonesia](README.id.md)
 
 ## System Overview
 
-- **Mobile Client:** Android application (`Android 8.0+ / API 26+`, targeting `API 34`) combining a managed Java interface with a native C++ (JNI) cryptographic module.
+- **Mobile Client:** Android application (`Android 8.0+ / API 26+`, targeting `API 36`) combining a managed Java interface with a native C++ (JNI) cryptographic module.
 - **Verification Backend:** Modular Node.js REST service enforcing client version compatibility, stateful session validation, and automated abuse mitigation.
 - **Transport Security:** Authenticated symmetric encryption protecting request payloads over HTTPS.
 

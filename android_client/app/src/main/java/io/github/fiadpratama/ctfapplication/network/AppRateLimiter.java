@@ -18,7 +18,7 @@ public class AppRateLimiter {
     public static final long WINDOW_MS = 60_000L;
     public static final int MAX_REQUESTS = 10;
     public static final long BAN_DURATION_MS = 300_000L;
-    private static final long MAX_SERVER_BAN_MS = 10_800_000L; // 3 hours max tier
+    private static final long MAX_SERVER_BAN_MS = 10_800_000L;
 
     private static final String PREFS_NAME = "ctf_rate_limiter_prefs";
     private static final String KEY_BANNED_UNTIL_ELAPSED = "banned_until_elapsed";

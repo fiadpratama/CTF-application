@@ -1,6 +1,6 @@
 /**
  * Distributed vault state and atomic transaction service.
- * 
+ *
  * Coordinates flag issuance, session binding, and atomic solve redemption (single
  * solve-counter increment with a 5-minute idempotent retry grace window) using
  * Redis Lua scripts to eliminate race conditions and duplicate solve counts.
@@ -110,7 +110,6 @@ async function issueSessionFlag(jti) {
     let flagKey = `flag:${candidateFlag}`;
     let result = await redis.eval(ISSUE_FLAG_LUA, [usedKey, flagKey], [candidateFlag, '660', '900']);
 
-    // Retry once if candidate flag randomly collided with existing key
     if (result === -6) {
         candidateFlag = createFlagString();
         flagKey = `flag:${candidateFlag}`;
