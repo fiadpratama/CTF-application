@@ -8,6 +8,7 @@ import android.media.MediaPlayer;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.view.HapticFeedbackConstants;
 import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.LinearInterpolator;
@@ -203,6 +204,7 @@ public class HonorScreenManager {
                 if (state != State.PLAYING || !isForegroundEligible()) {
                     return;
                 }
+                v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
                 if (onSkipAction != null) {
                     onSkipAction.run();
                 }

@@ -44,7 +44,7 @@
         <Button
             android:id="@+id/unlockButton"
             android:layout_width="match_parent"
-            android:layout_height="45dp"
+            android:layout_height="48dp"
             android:layout_marginBottom="24dp"
             android:text="@string/btn_decrypt_payload"
             android:textColor="@color/button_text_dark"
@@ -90,7 +90,7 @@
         <Button
             android:id="@+id/submitFlagBtn"
             android:layout_width="match_parent"
-            android:layout_height="45dp"
+            android:layout_height="48dp"
             android:layout_marginBottom="12dp"
             android:text="@string/btn_submit_flag"
             android:textColor="@color/button_text_dark"

@@ -2,6 +2,8 @@ package io.github.fiadpratama.ctfapplication.network;
 
 import android.os.Handler;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.json.JSONObject;
 
 import io.github.fiadpratama.ctfapplication.crypto.CryptoHelper;
@@ -14,6 +16,13 @@ import io.github.fiadpratama.ctfapplication.crypto.CryptoHelper;
  * onto the UI thread.
  */
 public class VaultProtocolController {
+
+    /**
+     * Deferred provider resolving the symmetric cipher key inside the worker thread.
+     */
+    public interface KeyProvider {
+        String getKey();
+    }
 
     /**
      * Main-thread callback interface for Stage 1 handshake execution.
@@ -36,22 +45,34 @@ public class VaultProtocolController {
     }
 
     private final Handler mainHandler;
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     public VaultProtocolController(Handler mainHandler) {
         this.mainHandler = mainHandler;
     }
 
     /**
+     * Terminates active protocol worker execution when the host Activity is destroyed.
+     */
+    public void shutdown() {
+        executor.shutdownNow();
+    }
+
+    /**
      * Executes the Phase 1 cryptographic handshake sequence on a background worker thread.
      *
-     * @param e2eKey Symmetric encryption key resolved from the native layer
+     * @param keyProvider Provider resolving the symmetric encryption key on the worker thread
      * @param callback Main-thread callback receiver
      */
-    public void executeStage1Handshake(final String e2eKey, final Stage1Callback callback) {
-        new Thread(new Runnable() {
+    public void executeStage1Handshake(final KeyProvider keyProvider, final Stage1Callback callback) {
+        if (executor.isShutdown()) {
+            return;
+        }
+        executor.execute(new Runnable() {
             @Override
             public void run() {
                 try {
+                    String e2eKey = keyProvider.getKey();
                     String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
                     String hash = CryptoHelper.computeHandshakeSignature(timestamp);
 
@@ -105,7 +126,7 @@ public class VaultProtocolController {
                     });
                 }
             }
-        }).start();
+        });
     }
 
     /**
@@ -115,7 +136,10 @@ public class VaultProtocolController {
      * @param callback Main-thread callback receiver
      */
     public void verifyFlag(final String flag, final FlagVerifyCallback callback) {
-        new Thread(new Runnable() {
+        if (executor.isShutdown()) {
+            return;
+        }
+        executor.execute(new Runnable() {
             @Override
             public void run() {
                 JSONObject json = new JSONObject();
@@ -168,6 +192,6 @@ public class VaultProtocolController {
                     }
                 });
             }
-        }).start();
+        });
     }
 }
