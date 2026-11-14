@@ -14,7 +14,11 @@ const router = express.Router();
 
 router.post('/stage1', (req, res) => {
     const { payload, iv, tag } = req.body || {};
-    if (!payload || !iv || !tag) {
+    if (
+        typeof payload !== 'string' || payload.trim() === '' ||
+        typeof iv !== 'string' || iv.trim() === '' ||
+        typeof tag !== 'string' || tag.trim() === ''
+    ) {
         return res.status(400).json({ status: 400, error: "Bad Request", message: "E2EE payload required" });
     }
 

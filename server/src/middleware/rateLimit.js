@@ -102,13 +102,15 @@ function formatRetry(seconds) {
 
 /**
  * Extracts and normalizes the client IP address from platform proxy headers.
- * Prioritizes Vercel's edge-injected 'x-real-ip' header before falling back to Express 'req.ip'.
+ * Trusts Vercel's edge-injected 'x-real-ip' header only when executing on Vercel,
+ * falling back to Express 'req.ip' elsewhere to prevent client header spoofing.
  *
  * @param {import('express').Request} req - Express request object
  * @returns {string} Normalized client IP identifier
  */
 function resolveClientIp(req) {
-    const edgeRealIp = req.headers['x-real-ip'];
+    const isVercel = Boolean(process.env.VERCEL);
+    const edgeRealIp = isVercel ? req.headers['x-real-ip'] : undefined;
     const rawIp = (typeof edgeRealIp === 'string' && edgeRealIp.trim() !== '')
         ? edgeRealIp.trim()
         : (req.ip || 'unknown');
