@@ -73,7 +73,9 @@ public class MainActivity extends AppCompatActivity {
         honorScreenManager = new HonorScreenManager(this, binding, new Runnable() {
             @Override
             public void run() {
-                soundEffects.playButtonBeep();
+                if (soundEffects != null) {
+                    soundEffects.playButtonBeep();
+                }
             }
         });
 
@@ -95,20 +97,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onPause() {
-        super.onPause();
-        if (honorScreenManager != null) {
-            honorScreenManager.onPause();
-        }
-    }
-
-    @Override
     protected void onResume() {
         super.onResume();
         SystemUiHelper.applyImmersiveMode(this);
-        if (honorScreenManager != null) {
-            honorScreenManager.onResume();
-        }
     }
 
     @Override
@@ -283,6 +274,7 @@ public class MainActivity extends AppCompatActivity {
                 honorScreenManager.start(debriefMessage, new HonorScreenManager.OnCinematicFinishedListener() {
                     @Override
                     public void onFinished() {
+                        if (!SystemUiHelper.isActivityAlive(MainActivity.this)) return;
                         terminalLogger.clear();
                         setButtonsState(true);
                         terminalLogger.log(getString(R.string.log_system_rebooted));
@@ -326,7 +318,8 @@ public class MainActivity extends AppCompatActivity {
             public void onComplete() {
                 if (!SystemUiHelper.isActivityAlive(MainActivity.this)) return;
                 appRateLimiter.applyServerBan(retryAfterSeconds);
-                String formattedDur = ToastHelper.formatDuration(retryAfterSeconds);
+                long effectiveSeconds = Math.max(1L, appRateLimiter.getRemainingBanSeconds());
+                String formattedDur = ToastHelper.formatDuration(effectiveSeconds);
                 showThrottledAlert(String.format(getString(R.string.toast_rate_limited), formattedDur), true);
                 isRequestRunning = false;
                 setButtonsState(true);
