@@ -7,17 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.0.1] - 2026-11-11
+## [2.0.1] - 2026-11-14
 
-Toolchain modernization, Android 16 (API 36) & 16 KB ELF page size compatibility, window inset controller upgrades, and server dependency updates.
+Toolchain modernization, Android 16 (API 36) & 16 KB ELF page size compatibility, lifecycle/rate-limiter hardening, and backend security refinements.
 
 ### Changed
-- **Android Build & Native Toolchain Upgrade:** Upgraded Gradle Wrapper to `9.3.1`, Android Gradle Plugin (AGP) to `8.11.1`, `compileSdk` and `targetSdk` to `36` (Android 16) with `buildToolsVersion "36.0.0"`, and pinned Android NDK to `26.1.10909125` (`versionCode` 9, `versionName` "2.0.1").
+- **Android Build & Native Toolchain Upgrade:** Upgraded Gradle Wrapper to `9.3.1`, Android Gradle Plugin (AGP) to `8.11.1`, `compileSdk` and `targetSdk` to `36` (Android 16) with `buildToolsVersion "36.0.0"`, pinned Android NDK to `26.1.10909125` (`versionCode` 9, `versionName` "2.0.1"), and added explicit Gradle task `inputs`/`outputs` plus non-cascading `-B` Python invocation in `generateNativeKeys`.
 - **16 KB ELF Page Size Alignment & Linker Hardening:** Added `-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384` linker flags in `CMakeLists.txt` to guarantee that all ELF shared library load segments (`p_align = 0x4000`) and uncompressed APK data offsets comply with 16 KB page-size kernel requirements on Android 15/16+ devices.
-- **Jetpack UI & WindowInsets Modernization:** Upgraded `androidx.appcompat:appcompat` to `1.7.0` and `com.google.android.material:material` to `1.12.0`, refactored `SystemUiHelper.applyImmersiveMode()` to use `WindowCompat.getInsetsController()` (`WindowInsetsControllerCompat`), and added bottom `systemBars()` inset protection alongside `ime()` insets.
-- **Server Runtime & Package Alignment:** Upgraded `@upstash/redis` to `^1.40.0`, synchronized package version to `2.0.1`, and declared `"engines": { "node": ">=20.0.0" }` in `server/package.json`.
+- **Jetpack UI, Dark Theme, & WindowInsets Modernization:** Upgraded `androidx.appcompat:appcompat` to `1.7.0` and `com.google.android.material:material` to `1.12.0`, added a dark `Theme.CtfApplication` post-splash theme matching the terminal palette, refactored `SystemUiHelper.applyImmersiveMode()` to use `WindowCompat.getInsetsController()` (`WindowInsetsControllerCompat`), scoped and applied `WindowManager.LayoutParams` cutout mode on API 28–34 (`< 35`), and added horizontal + bottom `systemBars()`/`displayCutout()` inset protection with RTL skip-button clearance.
+- **Server Runtime & Configuration Alignment:** Upgraded `@upstash/redis` to `^1.40.0`, synchronized package version to `2.0.1`, declared `"engines": { "node": ">=20.0.0" }` in `server/package.json`, and enforced safe integer upper-bound validation for environment configuration at startup.
+
+### Security
+- **Deployment-Scoped Client IP Resolution:** Restricted `x-real-ip` header prioritization in `rateLimit.js` strictly to Vercel Edge environments (`VERCEL`), falling back to Express `req.ip` on standalone or non-Vercel deployments to prevent client header spoofing.
+- **Vault API & Manifest Hardening:** Enforced `X-Content-Type-Options: nosniff` and `Cache-Control: no-store` response headers across `/api/vault` endpoints, and explicitly set `android:usesCleartextTraffic="false"` in `AndroidManifest.xml`.
 
 ### Fixed
+- **Hall of Fame Lifecycle & Audio Ownership (`HonorScreenManager`):** Refactored debrief playback into an explicit lifecycle-synchronized state machine (`DefaultLifecycleObserver`), replaced view animations with managed `ObjectAnimator` instances, wrapped `MediaPlayer` calls against asynchronous state errors, and consolidated teardown into a single idempotent cleanup path.
+- **Persistent Reboot-Aware Client Rate Limiter (`AppRateLimiter` & `MainActivity`):** Added `Settings.Global.BOOT_COUNT` primary reboot detection, bounded monotonic/wall-clock post-reboot ban recovery immune to same-boot clock manipulation, and synchronized Toast rate-limit alerts with the actual active ban duration.
+- **Backend Input Validation Consistency:** Standardized `HTTP 400 Bad Request` rejection for non-string E2EE envelope fields and whitespace-only Stage 2 inputs.
 - **Release Keystore Path Resolution:** Resolved relative path resolution for `storeFile` in `android_client/app/build.gradle` (`file(keystoreProperties['storeFile'])`) so local release builds automatically use `app/keystore.jks` when configured.
 
 ---
