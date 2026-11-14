@@ -8,7 +8,7 @@
 
 ## Gambaran Sistem
 
-- **Klien Seluler:** Aplikasi Android (`Android 8.0+ / API 26+`, menargetkan `API 36`) yang memadukan antarmuka Java dengan modul kriptografi native C++ (JNI).
+- **Klien Seluler:** Aplikasi Android (`Android 8.0+ / API 26+`, menargetkan `API 36` dengan dukungan *16 KB page-size*) yang memadukan antarmuka Java dengan modul kriptografi native C++ (JNI).
 - **Backend Verifikasi:** Layanan REST Node.js modular yang menegakkan kompatibilitas versi klien, validasi sesi berbasis *state*, serta mitigasi penyalahgunaan otomatis.
 - **Keamanan Transportasi:** Enkripsi simetris terautentikasi yang melindungi payload komunikasi klien-server melalui HTTPS.
 
@@ -30,11 +30,14 @@
 <details>
 <summary>Membangun dari Kode Sumber (Opsional untuk Pengembangan Lokal)</summary>
 
-Untuk mengompilasi klien Android secara lokal menggunakan konfigurasi kunci *dummy* 32-byte:
+**Prasyarat:** JDK 17, Python 3 (dieksekusi otomatis oleh task Gradle `preBuild` via `generateNativeKeys`), Android SDK (`compileSdk 36`, `buildToolsVersion 36.0.0`, `NDK 26.1.10909125`, `CMake 3.22.1`), serta Gradle Wrapper bawaan (`gradlew` / `gradlew.bat`).
+
+Untuk mengompilasi klien Android secara lokal menggunakan placeholder kunci *dummy* 32-byte:
 
 ```bash
-# 1. Buat berkas konfigurasi rahasia native lokal dari templat dummy 32-byte
+# 1. Buat berkas rahasia native lokal dari templat dummy 32-byte (POSIX / PowerShell)
 cp android_client/app/src/main/cpp/native-secrets.properties.example android_client/app/src/main/cpp/native-secrets.properties
+# Windows CMD: copy android_client\app\src\main\cpp\native-secrets.properties.example android_client\app\src\main\cpp\native-secrets.properties
 
 # 2. Kompilasi APK rilis melalui Gradle Wrapper
 cd android_client
@@ -42,8 +45,8 @@ cd android_client
 gradlew.bat assembleRelease    # Windows
 ```
 
-- **Penandatanganan Lokal (*Local Signing*):** Apabila berkas `android_client/keystore.properties` tidak ditemukan, Gradle secara otomatis menggunakan konfigurasi *debug signing* bawaan Android sehingga kompilasi lokal langsung berhasil tanpa memerlukan *keystore* produksi. Untuk menandatangani dengan *keystore* kustom, buat berkas `android_client/keystore.properties` yang memuat `storeFile`, `storePassword`, `keyAlias`, dan `keyPassword`.
-- **Catatan:** APK yang dikompilasi secara lokal menggunakan kunci *dummy* dari `native-secrets.properties` dan tidak akan terautentikasi ke server produksi kecuali dipasangkan dengan server lokal yang memiliki konfigurasi serupa.
+- **Penandatanganan Lokal (*Local Signing*):** Apabila berkas `android_client/keystore.properties` tidak ditemukan, Gradle otomatis menggunakan konfigurasi *debug signing* bawaan Android sehingga kompilasi lokal langsung berhasil. Untuk menandatangani dengan *keystore* kustom, buat `android_client/keystore.properties` berisi `storeFile`, `storePassword`, `keyAlias`, dan `keyPassword`.
+- **Memasangkan dengan Server Lokal:** APK hasil build lokal menanamkan kunci dummy dari `native-secrets.properties` dan menargetkan `https://server-umber-eta.vercel.app/api/vault` di `VaultApiClient.java`. APK ini tidak akan terautentikasi ke server produksi kecuali Anda mengubah `BASE_URL` dan menjalankan `server/` (`Node.js >= 20.0.0`) dengan environment variable yang selaras (`E2EE_KEY`, `BACKDOOR_CODE`, `SECRET_MULTIPLIER`, `JWT_SECRET`, serta kredensial Upstash Redis).
 - **Lokasi Keluaran:** `android_client/app/build/outputs/apk/release/app-release.apk`
 </details>
 
@@ -91,7 +94,7 @@ Kirimkan flag yang telah diterbitkan untuk memverifikasi penyelesaian tantangan 
 
 - **Aturan Pengujian:** Pengujian dibatasi pada analisis biner, inspeksi protokol, dan pengiriman request terukur. Serangan *brute-force* otomatis, *fuzzing* berintensitas tinggi, atau pengujian *Denial of Service* (DoS) terhadap infrastruktur aktif dilarang keras.
 - **Privasi Data:** Aplikasi ini tidak mengumpulkan atau menyimpan data pribadi. Jangan mengirimkan kredensial pribadi atau informasi sensitif di dalam payload.
-- **Pembatasan Laju & Telemetri:** Alamat IP klien diproses secara sementara (*ephemeral*) pada penyimpanan state terdistribusi Redis dengan masa kedaluwarsa (TTL) otomatis semata-mata untuk penegakan *rate limit* dan mitigasi penyalahgunaan otomatis. Penyelesaian tantangan hanya dicatat melalui penghitung global anonim.
+- **Pembatasan Laju & Telemetri:** Alamat IP klien diproses secara sementara (*ephemeral*) pada penyimpanan state terdistribusi Redis dengan masa kedaluwarsa (TTL) otomatis semata-mata untuk penegakan *rate limit* dan mitigasi penyalahgunaan otomatis. Antarmuka seluler juga menerapkan jeda permintaan lokal untuk membantu mencegah pemblokiran server yang tidak disengaja saat penggunaan normal, sementara penyelesaian tantangan hanya dicatat melalui penghitung global anonim.
 
 ## Verifikasi Keaslian Rilis
 
@@ -107,11 +110,12 @@ Sebelum memasang APK, Anda dapat memverifikasi **tanda tangan sertifikat pengemb
      11919c358daf9c9f56da77617284fb99cc402fc789242fe8c75c674a3c551a62
      ```
 
-2. **Checksum Berkas APK (Keutuhan):**  
-   Hitung hash SHA-256 dari berkas `.apk` yang diunduh, lalu cocokkan hasilnya dengan *checksum* berkas yang tertera pada halaman [GitHub Releases](https://github.com/fiadpratama/CTF-application/releases):
+2. **Checksum Berkas APK & Perataan 16 KB (Keutuhan):**  
+   Hitung hash SHA-256 dari berkas `.apk` yang diunduh, lalu cocokkan hasilnya dengan *checksum* berkas yang tertera pada halaman [GitHub Releases](https://github.com/fiadpratama/CTF-application/releases) (dan secara opsional periksa perataan *16 KB page-size* untuk perangkat Android 15/16+):
    ```bash
    sha256sum app-release.apk                    # Linux / macOS
    certutil -hashfile app-release.apk SHA256    # Windows
+   zipalign -c -P 16 4 app-release.apk          # Cek opsional perataan 16 KB
    ```
 
 ## Lisensi & Atribusi Aset

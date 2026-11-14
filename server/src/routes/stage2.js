@@ -34,7 +34,11 @@ router.post('/stage2', async (req, res) => {
     }
 
     const { payload, iv, tag } = req.body || {};
-    if (!payload || !iv || !tag) {
+    if (
+        typeof payload !== 'string' || payload.trim() === '' ||
+        typeof iv !== 'string' || iv.trim() === '' ||
+        typeof tag !== 'string' || tag.trim() === ''
+    ) {
         return res.status(400).json({ status: 400, error: "Bad Request", message: "E2EE payload required" });
     }
 
@@ -44,7 +48,12 @@ router.post('/stage2', async (req, res) => {
     }
 
     const { answer } = decryptedData;
-    if (answer === undefined || answer === null || (typeof answer !== 'string' && typeof answer !== 'number')) {
+    if (
+        answer === undefined ||
+        answer === null ||
+        (typeof answer !== 'string' && typeof answer !== 'number') ||
+        (typeof answer === 'string' && answer.trim() === '')
+    ) {
         return res.status(400).json({ status: 400, error: "Bad Request", message: "Missing answer parameter" });
     }
 

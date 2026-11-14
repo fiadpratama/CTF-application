@@ -8,7 +8,7 @@ English | [Bahasa Indonesia](README.id.md)
 
 ## System Overview
 
-- **Mobile Client:** Android application (`Android 8.0+ / API 26+`, targeting `API 36`) combining a managed Java interface with a native C++ (JNI) cryptographic module.
+- **Mobile Client:** Android application (`Android 8.0+ / API 26+`, targeting `API 36` with 16 KB page-size support) combining a managed Java interface with a native C++ (JNI) cryptographic module.
 - **Verification Backend:** Modular Node.js REST service enforcing client version compatibility, stateful session validation, and automated abuse mitigation.
 - **Transport Security:** Authenticated symmetric encryption protecting request payloads over HTTPS.
 
@@ -30,11 +30,14 @@ English | [Bahasa Indonesia](README.id.md)
 <details>
 <summary>Building from Source (Optional Local Setup)</summary>
 
+**Prerequisites:** JDK 17, Python 3 (run automatically by Gradle `preBuild` via `generateNativeKeys`), Android SDK (`compileSdk 36`, `buildToolsVersion 36.0.0`, `NDK 26.1.10909125`, `CMake 3.22.1`), and the bundled Gradle Wrapper (`gradlew` / `gradlew.bat`).
+
 To compile the Android client locally using dummy 32-byte placeholder secrets:
 
 ```bash
-# 1. Create a local native secrets configuration from the 32-byte dummy template
+# 1. Create a local native secrets file from the 32-byte dummy template (POSIX / PowerShell)
 cp android_client/app/src/main/cpp/native-secrets.properties.example android_client/app/src/main/cpp/native-secrets.properties
+# Windows CMD: copy android_client\app\src\main\cpp\native-secrets.properties.example android_client\app\src\main\cpp\native-secrets.properties
 
 # 2. Compile the release APK via Gradle Wrapper
 cd android_client
@@ -43,7 +46,7 @@ gradlew.bat assembleRelease    # Windows
 ```
 
 - **Local Signing Behavior:** If `android_client/keystore.properties` is not present, Gradle automatically falls back to standard Android debug signing so local builds succeed out of the box. To sign with a custom keystore, create `android_client/keystore.properties` defining `storeFile`, `storePassword`, `keyAlias`, and `keyPassword`.
-- **Note:** A locally compiled APK uses dummy keys from `native-secrets.properties` and will not authenticate against the live production backend unless paired with a matching local server instance.
+- **Pairing with a Local Server:** A locally built APK embeds dummy secrets from `native-secrets.properties` and targets `https://server-umber-eta.vercel.app/api/vault` in `VaultApiClient.java`. It will not authenticate against production unless you update `BASE_URL` and run `server/` (`Node.js >= 20.0.0`, configuring matching `E2EE_KEY`, `BACKDOOR_CODE`, `SECRET_MULTIPLIER`, `JWT_SECRET`, and Upstash Redis credentials via environment variables).
 - **Output Path:** `android_client/app/build/outputs/apk/release/app-release.apk`
 </details>
 
@@ -91,7 +94,7 @@ Submit the issued flag to verify completion and trigger the Hall of Fame debrief
 
 - **Rules of Engagement:** Testing must remain limited to binary analysis, protocol inspection, and controlled request crafting. Automated brute-force attacks, high-rate fuzzing, or denial-of-service testing against the live backend are strictly prohibited.
 - **Data Privacy:** This application does not collect or store personal data. Do not submit personal credentials or sensitive information in request payloads.
-- **Rate Limiting & Telemetry:** Client IP addresses are processed ephemerally in distributed Redis state with automatic TTL expiration strictly to enforce rate limits and mitigate automated abuse. Completed assessments are recorded solely through an anonymous global counter.
+- **Rate Limiting & Telemetry:** Client IP addresses are processed ephemerally in distributed Redis state with automatic TTL expiration strictly to enforce rate limits and mitigate automated abuse. The mobile UI also enforces local request pacing to help avoid accidental server bans during normal use, while completed assessments are recorded solely through an anonymous global counter.
 
 ## Release Verification
 
@@ -107,11 +110,12 @@ Before installing the APK, you can independently verify both its **developer sig
      11919c358daf9c9f56da77617284fb99cc402fc789242fe8c75c674a3c551a62
      ```
 
-2. **APK File Checksum (Integrity):**  
-   Compute the SHA-256 hash of the downloaded `.apk` file and compare it against the asset checksum listed on the [GitHub Releases](https://github.com/fiadpratama/CTF-application/releases) page:
+2. **APK File Checksum & 16 KB Alignment (Integrity):**  
+   Compute the SHA-256 hash of the downloaded `.apk` file and compare it against the asset checksum listed on the [GitHub Releases](https://github.com/fiadpratama/CTF-application/releases) page (and optionally verify 16 KB page-size alignment for Android 15/16+ devices):
    ```bash
    sha256sum app-release.apk                    # Linux / macOS
    certutil -hashfile app-release.apk SHA256    # Windows
+   zipalign -c -P 16 4 app-release.apk          # Optional 16 KB alignment check
    ```
 
 ## License & Asset Attribution

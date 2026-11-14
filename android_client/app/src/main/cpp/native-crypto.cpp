@@ -95,7 +95,9 @@ Java_io_github_fiadpratama_ctfapplication_MainActivity_getE2EKey(JNIEnv* env, jo
     timing_noise();
     std::string key = decrypt(ENC_E2E_KEY, sizeof(ENC_E2E_KEY));
     if (detect_hooking()) {
-        key[0] = key[0] ^ 0x01;
+        if (!key.empty()) {
+            key[0] = (key[0] == 'X') ? 'Y' : 'X';
+        }
     }
     return env->NewStringUTF(key.c_str());
 }
@@ -109,7 +111,9 @@ Java_io_github_fiadpratama_ctfapplication_MainActivity_getBackdoor(JNIEnv* env, 
     timing_noise();
     std::string backdoor = decrypt(ENC_BACKDOOR, sizeof(ENC_BACKDOOR));
     if (detect_hooking()) {
-        backdoor[0] = backdoor[0] ^ 0x01;
+        if (!backdoor.empty()) {
+            backdoor[0] = (backdoor[0] == 'X') ? 'Y' : 'X';
+        }
     }
     return env->NewStringUTF(backdoor.c_str());
 }

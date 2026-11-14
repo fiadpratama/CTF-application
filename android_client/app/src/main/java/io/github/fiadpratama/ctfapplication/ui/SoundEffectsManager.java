@@ -6,8 +6,9 @@ import android.media.ToneGenerator;
 /**
  * Tactile and diagnostic audio feedback controller.
  *
- * Encapsulates Android {@link ToneGenerator} lifecycle management to emit
- * terminal button beeps and error alert tones safely across hardware profiles.
+ * Encapsulates Android {@link ToneGenerator} lifecycle management routed via
+ * {@link AudioManager#STREAM_MUSIC} so terminal button beeps and alert tones stay
+ * consistent with media volume controls and debrief playback across ringer modes.
  */
 public class SoundEffectsManager {
 
@@ -15,7 +16,7 @@ public class SoundEffectsManager {
 
     public SoundEffectsManager() {
         try {
-            toneGenerator = new ToneGenerator(AudioManager.STREAM_SYSTEM, 100);
+            toneGenerator = new ToneGenerator(AudioManager.STREAM_MUSIC, 100);
         } catch (Exception ignored) {
             toneGenerator = null;
         }

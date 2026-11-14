@@ -10,14 +10,20 @@ const MULTIPLIER_STRING = process.env.SECRET_MULTIPLIER || '';
 const SECRET_MULTIPLIER = Number(MULTIPLIER_STRING);
 const JWT_SECRET = process.env.JWT_SECRET;
 const MIN_VERSION_CODE = 8;
+const MAX_SAFE_SECRET_MULTIPLIER = Math.floor(Number.MAX_SAFE_INTEGER / 9999);
 
 const configErrors = [];
 if (!E2EE_KEY_STRING || Buffer.byteLength(E2EE_KEY_STRING, 'utf8') !== 32) {
     configErrors.push('E2EE_KEY must be exactly 32 bytes');
 }
 if (!BACKDOOR_CODE) configErrors.push('BACKDOOR_CODE is required');
-if (!/^\d+$/.test(MULTIPLIER_STRING) || SECRET_MULTIPLIER < 1 || !Number.isSafeInteger(SECRET_MULTIPLIER)) {
-    configErrors.push('SECRET_MULTIPLIER must be a positive safe integer');
+if (
+    !/^\d+$/.test(MULTIPLIER_STRING) ||
+    SECRET_MULTIPLIER < 1 ||
+    !Number.isSafeInteger(SECRET_MULTIPLIER) ||
+    SECRET_MULTIPLIER > MAX_SAFE_SECRET_MULTIPLIER
+) {
+    configErrors.push(`SECRET_MULTIPLIER must be a positive safe integer (<= ${MAX_SAFE_SECRET_MULTIPLIER})`);
 }
 if (!JWT_SECRET || JWT_SECRET.length < 32) {
     configErrors.push('JWT_SECRET must be at least 32 characters');

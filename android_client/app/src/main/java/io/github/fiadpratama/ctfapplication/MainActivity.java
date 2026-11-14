@@ -1,12 +1,20 @@
 package io.github.fiadpratama.ctfapplication;
 
+import android.content.res.Configuration;
+import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.HapticFeedbackConstants;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
+import android.widget.TextView;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.splashscreen.SplashScreen;
+import androidx.core.view.ViewCompat;
 
 import io.github.fiadpratama.ctfapplication.databinding.ActivityMainBinding;
 import io.github.fiadpratama.ctfapplication.network.AppRateLimiter;
@@ -25,6 +33,8 @@ import io.github.fiadpratama.ctfapplication.ui.ToastHelper;
  * and delegation to specialized protocol, terminal, and debriefing controllers.
  */
 public class MainActivity extends AppCompatActivity {
+
+    private static final String KEY_TERMINAL_LOG = "terminal_log_text";
 
     private ActivityMainBinding binding;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -63,6 +73,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(binding.getRoot());
 
         soundEffects = new SoundEffectsManager();
+        setVolumeControlStream(AudioManager.STREAM_MUSIC);
         appRateLimiter = new AppRateLimiter(this);
         protocolController = new VaultProtocolController(handler);
 
@@ -73,12 +84,35 @@ public class MainActivity extends AppCompatActivity {
         honorScreenManager = new HonorScreenManager(this, binding, new Runnable() {
             @Override
             public void run() {
-                soundEffects.playButtonBeep();
+                if (soundEffects != null) {
+                    soundEffects.playButtonBeep();
+                }
             }
         });
 
         setupListeners();
-        initTerminalDiagnostics();
+        if (savedInstanceState != null && savedInstanceState.containsKey(KEY_TERMINAL_LOG)) {
+            binding.terminalLogText.setText(savedInstanceState.getCharSequence(KEY_TERMINAL_LOG, ""));
+        } else {
+            initTerminalDiagnostics();
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (binding != null && binding.terminalLogText != null) {
+            outState.putCharSequence(KEY_TERMINAL_LOG, binding.terminalLogText.getText());
+        }
+    }
+
+    @Override
+    public void onConfigurationChanged(@NonNull Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        SystemUiHelper.applyImmersiveMode(this);
+        if (binding != null) {
+            ViewCompat.requestApplyInsets(binding.getRoot());
+        }
     }
 
     /**
@@ -95,20 +129,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onPause() {
-        super.onPause();
-        if (honorScreenManager != null) {
-            honorScreenManager.onPause();
-        }
-    }
-
-    @Override
     protected void onResume() {
         super.onResume();
         SystemUiHelper.applyImmersiveMode(this);
-        if (honorScreenManager != null) {
-            honorScreenManager.onResume();
-        }
     }
 
     @Override
@@ -184,6 +207,7 @@ public class MainActivity extends AppCompatActivity {
         binding.unlockButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
                 SystemUiHelper.hideKeyboard(MainActivity.this);
                 if (!checkClientRateLimit()) {
                     return;
@@ -197,9 +221,27 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        binding.flagInput.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+            @Override
+            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                boolean isDoneAction = actionId == EditorInfo.IME_ACTION_DONE;
+                boolean isEnterKey = event != null
+                        && event.getKeyCode() == KeyEvent.KEYCODE_ENTER
+                        && event.getAction() == KeyEvent.ACTION_DOWN;
+                if (isDoneAction || isEnterKey) {
+                    if (binding.submitFlagBtn.isEnabled()) {
+                        binding.submitFlagBtn.performClick();
+                    }
+                    return true;
+                }
+                return false;
+            }
+        });
+
         binding.submitFlagBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
                 SystemUiHelper.hideKeyboard(MainActivity.this);
                 if (appRateLimiter.isBanned()) {
                     String dur = ToastHelper.formatDuration(appRateLimiter.getRemainingBanSeconds());
@@ -233,7 +275,12 @@ public class MainActivity extends AppCompatActivity {
      * Dispatches the Phase 1 cryptographic handshake sequence via {@link VaultProtocolController}.
      */
     private void unlockVault() {
-        protocolController.executeStage1Handshake(getE2EKey(), new VaultProtocolController.Stage1Callback() {
+        protocolController.executeStage1Handshake(new VaultProtocolController.KeyProvider() {
+            @Override
+            public String getKey() {
+                return getE2EKey();
+            }
+        }, new VaultProtocolController.Stage1Callback() {
             @Override
             public void onTransmitting() {
                 if (SystemUiHelper.isActivityAlive(MainActivity.this)) {
@@ -283,6 +330,7 @@ public class MainActivity extends AppCompatActivity {
                 honorScreenManager.start(debriefMessage, new HonorScreenManager.OnCinematicFinishedListener() {
                     @Override
                     public void onFinished() {
+                        if (!SystemUiHelper.isActivityAlive(MainActivity.this)) return;
                         terminalLogger.clear();
                         setButtonsState(true);
                         terminalLogger.log(getString(R.string.log_system_rebooted));
@@ -326,7 +374,8 @@ public class MainActivity extends AppCompatActivity {
             public void onComplete() {
                 if (!SystemUiHelper.isActivityAlive(MainActivity.this)) return;
                 appRateLimiter.applyServerBan(retryAfterSeconds);
-                String formattedDur = ToastHelper.formatDuration(retryAfterSeconds);
+                long effectiveSeconds = Math.max(1L, appRateLimiter.getRemainingBanSeconds());
+                String formattedDur = ToastHelper.formatDuration(effectiveSeconds);
                 showThrottledAlert(String.format(getString(R.string.toast_rate_limited), formattedDur), true);
                 isRequestRunning = false;
                 setButtonsState(true);
@@ -372,6 +421,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (protocolController != null) {
+            protocolController.shutdown();
+        }
         if (honorScreenManager != null) {
             honorScreenManager.onDestroy();
         }

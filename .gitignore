@@ -35,3 +35,7 @@ Thumbs.db
 .vscode/
 *.swp
 *.bak
+
+# Python Cache
+__pycache__/
+*.py[cod]

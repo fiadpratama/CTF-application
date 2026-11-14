@@ -18,6 +18,12 @@ const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
+app.use('/api/vault', (_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+});
+
 app.use('/api/vault', rateLimitMiddleware, versionGateMiddleware);
 app.use(express.json({ limit: '10kb' }));
 

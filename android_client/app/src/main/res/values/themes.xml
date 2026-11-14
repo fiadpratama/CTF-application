@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <style name="Theme.CtfApplication" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/terminal_bg</item>
+        <item name="colorPrimary">@color/terminal_bg</item>
+        <item name="colorPrimaryDark">@color/terminal_bg</item>
+        <item name="colorAccent">@color/terminal_green</item>
+    </style>
+
     <style name="Theme.CtfApplication.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/terminal_bg</item>
         <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
-        <item name="postSplashScreenTheme">@style/Theme.AppCompat.Light.NoActionBar</item>
+        <item name="postSplashScreenTheme">@style/Theme.CtfApplication</item>
     </style>
 </resources>
