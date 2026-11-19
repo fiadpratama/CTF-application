@@ -27,7 +27,7 @@ import io.github.fiadpratama.ctfapplication.databinding.ActivityMainBinding;
  * Cinematic Hall of Fame Presentation Controller
  *
  * Coordinates the full-screen debriefing sequence, background music playback,
- * smooth auto-scrolling credits, audio fade-out, 15-second skip button reveal,
+ * smooth auto-scrolling credits, audio fade-out, 30-second skip button reveal,
  * Lifecycle-driven pause/resume synchronization, and single-path idempotent teardown.
  */
 public class HonorScreenManager {
@@ -48,11 +48,11 @@ public class HonorScreenManager {
     }
 
     private static final long SCROLL_START_DELAY_MS = 2000L;
-    private static final long SCROLL_DURATION_MS = 82000L;
-    private static final long TRANSITION_TOTAL_MS = 87000L;
+    private static final long SCROLL_DURATION_MS = 110000L;
+    private static final long TRANSITION_TOTAL_MS = 115000L;
     private static final long FADE_STANDARD_MS = 5000L;
     private static final long FADE_SKIP_MS = 1000L;
-    private static final long SKIP_APPEAR_DELAY_MS = 15000L;
+    private static final long SKIP_APPEAR_DELAY_MS = 30000L;
     private static final long SKIP_FADE_IN_MS = 600L;
 
     private final AppCompatActivity activity;
@@ -71,6 +71,7 @@ public class HonorScreenManager {
 
     private MediaPlayer mediaPlayer;
     private boolean isMediaPlayerPlaying = false;
+    private float currentAudioVolume = 0.0f;
 
     private ObjectAnimator layoutFadeAnimator;
     private ObjectAnimator skipFadeAnimator;
@@ -326,15 +327,41 @@ public class HonorScreenManager {
                     return true;
                 }
             });
-            player.setLooping(true);
-            setMediaPlayerVolumeSafe(player, 1.0f);
+            player.setLooping(false);
+            setMediaPlayerVolumeSafe(player, 0.0f);
             if (mediaPlayer == player) {
                 player.start();
                 isMediaPlayerPlaying = true;
+                startAudioFadeIn(player);
             }
         } catch (Exception ignored) {
             releaseAudioResources();
         }
+    }
+
+    private void startAudioFadeIn(final MediaPlayer ownedPlayer) {
+        cancelAnimator(audioFadeAnimator);
+        audioFadeAnimator = ValueAnimator.ofFloat(0.0f, 1.0f);
+        audioFadeAnimator.setDuration(FADE_STANDARD_MS);
+        audioFadeAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
+        audioFadeAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                if (mediaPlayer == ownedPlayer) {
+                    float vol = (float) animation.getAnimatedValue();
+                    setMediaPlayerVolumeSafe(ownedPlayer, vol);
+                }
+            }
+        });
+        audioFadeAnimator.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                if (audioFadeAnimator == animation) {
+                    audioFadeAnimator = null;
+                }
+            }
+        });
+        audioFadeAnimator.start();
     }
 
     /**
@@ -377,7 +404,8 @@ public class HonorScreenManager {
         audioFadeAnimator = null;
         if (mediaPlayer != null) {
             final MediaPlayer ownedPlayer = mediaPlayer;
-            audioFadeAnimator = ValueAnimator.ofFloat(1.0f, 0.0f);
+            float startVol = currentAudioVolume > 0.0f ? currentAudioVolume : 1.0f;
+            audioFadeAnimator = ValueAnimator.ofFloat(startVol, 0.0f);
             audioFadeAnimator.setDuration(fadeDurationMs);
             audioFadeAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
                 @Override
@@ -613,6 +641,7 @@ public class HonorScreenManager {
             return;
         }
         try {
+            currentAudioVolume = volume;
             player.setVolume(volume, volume);
         } catch (IllegalStateException e) {
             releaseAudioResources();
@@ -669,6 +698,7 @@ public class HonorScreenManager {
         audioFadeAnimator = null;
 
         isMediaPlayerPlaying = false;
+        currentAudioVolume = 0.0f;
         MediaPlayer player = mediaPlayer;
         mediaPlayer = null;
         if (player != null) {

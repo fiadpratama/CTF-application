@@ -120,7 +120,7 @@ Before installing the APK, you can independently verify both its **developer sig
 
 ## License & Asset Attribution
 
-- **Source Code:** Released under the [MIT License](LICENSE).
-- **Audio Asset:** The Hall of Fame debriefing score (`android_client/app/src/main/res/raw/bgm.mp3`) features *W.A. Mozart — "Dies Irae" from Requiem in D minor, K. 626* (1791, public-domain composition), included solely for non-commercial educational presentation.
+- **Source Code:** Released under the [MIT License](LICENSE). The MIT License applies to the project source code and does not cover third-party media assets.
+- **Audio Asset:** The Hall of Fame debriefing score (`android_client/app/src/main/res/raw/bgm.ogg`) features an edited excerpt (2:55–4:55, with fades) of *"Signal to Noise"* by **Scott Buckley** ([www.scottbuckley.com.au](https://www.scottbuckley.com.au)), licensed under [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
 
 For version history and architectural changes, see [CHANGELOG.md](CHANGELOG.md). For infrastructure security boundaries and vulnerability reporting, see [SECURITY.md](SECURITY.md).

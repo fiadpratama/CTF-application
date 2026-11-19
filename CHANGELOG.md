@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.2] - 2026-11-19
+
+Hall of Fame debriefing audio overhaul, extended 120-second cinematic credits timeline, and project licensing metadata refinements.
+
+### Changed
+- **Hall of Fame Background Score:** Replaced the placeholder debrief audio with an edited 120-second excerpt (2:55–4:55, with fade-in/fade-out) of *"Signal to Noise"* by Scott Buckley (CC BY 4.0), re-encoded from `res/raw/bgm.mp3` (~8.9 MB) to OGG Vorbis `res/raw/bgm.ogg` (~1.8 MB), added a lifecycle-synchronized 5-second audio volume fade-in (`0.0f` to `1.0f`) matching the layout transition, and disabled `MediaPlayer` looping.
+- **Hall of Fame Timeline & Credits:** Extended the cinematic debrief sequence to 120 seconds (`SCROLL_DURATION_MS` 110 s, `TRANSITION_TOTAL_MS` 115 s), delayed the skip button reveal to 30 seconds (`SKIP_APPEAR_DELAY_MS`), and expanded `hallOfFame.js` credits with assessment domains, client/backend architecture, security standards, community conduct, and dedication sections.
+- **Licensing & Package Metadata:** Clarified that the MIT License covers source code only, updated third-party audio attribution in `README.md`/`README.id.md`, set the copyright holder to `Fiad Pratama`, and updated `description`, `license`, `author`, and `repository` metadata in `server/package.json`.
+
+---
+
 ## [2.0.1] - 2026-11-14
 
 Toolchain modernization, Android 16 (API 36) & 16 KB ELF page size compatibility, lifecycle/rate-limiter hardening, and backend security refinements.
