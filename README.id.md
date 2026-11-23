@@ -123,4 +123,4 @@ Sebelum memasang APK, Anda dapat memverifikasi **tanda tangan sertifikat pengemb
 - **Kode Sumber:** Dirilis di bawah [Lisensi MIT](LICENSE). Lisensi MIT berlaku untuk kode sumber proyek dan tidak mencakup aset media pihak ketiga.
 - **Aset Audio:** Musik latar pada layar debriefing Hall of Fame (`android_client/app/src/main/res/raw/bgm.ogg`) menggunakan potongan yang telah diedit (2:55–4:55, dengan *fade*) dari *"Signal to Noise"* karya **Scott Buckley** ([www.scottbuckley.com.au](https://www.scottbuckley.com.au)), dilisensikan di bawah [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
 
-Untuk riwayat perubahan versi dan arsitektur, lihat [CHANGELOG.md](CHANGELOG.md). Untuk batasan keamanan infrastruktur dan kebijakan pelaporan kerentanan, lihat [SECURITY.md](SECURITY.md).
+Untuk riwayat perubahan versi dan arsitektur, lihat [CHANGELOG.md](CHANGELOG.md). Untuk panduan kontribusi, batasan keamanan infrastruktur, dan kebijakan pelaporan kerentanan, lihat [CONTRIBUTING.md](CONTRIBUTING.md) serta [SECURITY.md](SECURITY.md).
