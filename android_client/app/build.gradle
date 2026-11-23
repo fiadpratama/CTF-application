@@ -10,6 +10,11 @@ if (keystorePropertiesFile.exists()) {
 def hasReleaseKeystore = keystorePropertiesFile.exists() &&
     keystoreProperties['storeFile'] != null &&
     file(keystoreProperties['storeFile']).exists()
+def requireReleaseKeystore = project.hasProperty('requireReleaseKeystore') &&
+    project.property('requireReleaseKeystore').toString().toBoolean()
+if (requireReleaseKeystore && !hasReleaseKeystore) {
+    throw new GradleException("Release keystore is required (-PrequireReleaseKeystore=true), but keystore.properties or storeFile is missing.")
+}
 
 android {
     namespace 'io.github.fiadpratama.ctfapplication'
@@ -21,8 +26,8 @@ android {
         applicationId "io.github.fiadpratama.ctfapplication"
         minSdk 26
         targetSdk 36
-        versionCode 10
-        versionName "2.0.2"
+        versionCode 11
+        versionName "2.0.3"
 
         externalNativeBuild {
             cmake {

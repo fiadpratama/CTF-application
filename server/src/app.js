@@ -16,7 +16,9 @@ const verifyFlagRouter = require('./routes/verifyFlag');
 const app = express();
 
 app.disable('x-powered-by');
-app.set('trust proxy', 1);
+if (process.env.VERCEL || process.env.TRUST_PROXY === '1') {
+    app.set('trust proxy', 1);
+}
 
 app.use('/api/vault', (_req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');

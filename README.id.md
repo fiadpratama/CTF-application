@@ -30,7 +30,7 @@
 <details>
 <summary>Membangun dari Kode Sumber (Opsional untuk Pengembangan Lokal)</summary>
 
-**Prasyarat:** JDK 17, Python 3 (dieksekusi otomatis oleh task Gradle `preBuild` via `generateNativeKeys`), Android SDK (`compileSdk 36`, `buildToolsVersion 36.0.0`, `NDK 26.1.10909125`, `CMake 3.22.1`), serta Gradle Wrapper bawaan (`gradlew` / `gradlew.bat`).
+**Prasyarat:** JDK 17, Python 3.9+ (dieksekusi otomatis oleh task Gradle `preBuild` via `generateNativeKeys`), Android SDK (`compileSdk 36`, `buildToolsVersion 36.0.0`, `NDK 26.1.10909125`, `CMake 3.22.1`), serta Gradle Wrapper bawaan (`gradlew` / `gradlew.bat`).
 
 Untuk mengompilasi klien Android secara lokal menggunakan placeholder kunci *dummy* 32-byte:
 
@@ -93,7 +93,7 @@ Kirimkan flag yang telah diterbitkan untuk memverifikasi penyelesaian tantangan 
 ## Cakupan, Privasi, & Pencegahan Penyalahgunaan
 
 - **Aturan Pengujian:** Pengujian dibatasi pada analisis biner, inspeksi protokol, dan pengiriman request terukur. Serangan *brute-force* otomatis, *fuzzing* berintensitas tinggi, atau pengujian *Denial of Service* (DoS) terhadap infrastruktur aktif dilarang keras.
-- **Privasi Data:** Aplikasi ini tidak mengumpulkan atau menyimpan data pribadi. Jangan mengirimkan kredensial pribadi atau informasi sensitif di dalam payload.
+- **Privasi Data:** Aplikasi ini tidak menggunakan akun pengguna maupun mengumpulkan profil identitas pribadi secara persisten, selain pemrosesan sementara alamat IP untuk pembatasan laju yang dijelaskan di bawah. Jangan mengirimkan kredensial pribadi atau informasi sensitif di dalam payload.
 - **Pembatasan Laju & Telemetri:** Alamat IP klien diproses secara sementara (*ephemeral*) pada penyimpanan state terdistribusi Redis dengan masa kedaluwarsa (TTL) otomatis semata-mata untuk penegakan *rate limit* dan mitigasi penyalahgunaan otomatis. Antarmuka seluler juga menerapkan jeda permintaan lokal untuk membantu mencegah pemblokiran server yang tidak disengaja saat penggunaan normal, sementara penyelesaian tantangan hanya dicatat melalui penghitung global anonim.
 
 ## Verifikasi Keaslian Rilis

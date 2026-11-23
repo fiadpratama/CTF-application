@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.3] - 2026-11-23
+
+Standalone proxy-trust hardening, opt-in release keystore signing enforcement, and documentation accuracy refinements.
+
+### Changed
+- **Release Signing Enforcement (`android_client/app/build.gradle`):** Added an opt-in `-PrequireReleaseKeystore=true` Gradle property check that aborts release builds with a `GradleException` when `keystore.properties` or the target store file is absent, preventing accidental debug-signed release artifacts while preserving local debug-fallback builds by default.
+- **Privacy & Toolchain Documentation (`README.md`, `README.id.md`):** Clarified the Data Privacy section to explicitly account for ephemeral Redis IP processing under rate limiting, and updated the build prerequisite from `Python 3` to `Python 3.9+` to match PEP 585 generic type annotations in `generate_keys.py`.
+
+### Security
+- **Conditional Proxy Trust (`server/src/app.js`):** Scoped `app.set('trust proxy', 1)` strictly to Vercel Edge environments (`VERCEL`) or explicit reverse-proxy deployments (`TRUST_PROXY=1`), leaving `trust proxy` disabled by default in standalone execution to prevent `X-Forwarded-For` header spoofing against `req.ip` rate limiting.
+
+---
+
 ## [2.0.2] - 2026-11-19
 
 Hall of Fame debriefing audio overhaul, extended 120-second cinematic credits timeline, and project licensing metadata refinements.

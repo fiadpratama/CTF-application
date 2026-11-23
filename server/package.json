@@ -1,6 +1,6 @@
 {
   "name": "ctf-application-api",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Serverless verification backend for the CTF Application mobile security challenge",
   "license": "MIT",
   "author": "Fiad Pratama",

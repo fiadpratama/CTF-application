@@ -30,7 +30,7 @@ English | [Bahasa Indonesia](README.id.md)
 <details>
 <summary>Building from Source (Optional Local Setup)</summary>
 
-**Prerequisites:** JDK 17, Python 3 (run automatically by Gradle `preBuild` via `generateNativeKeys`), Android SDK (`compileSdk 36`, `buildToolsVersion 36.0.0`, `NDK 26.1.10909125`, `CMake 3.22.1`), and the bundled Gradle Wrapper (`gradlew` / `gradlew.bat`).
+**Prerequisites:** JDK 17, Python 3.9+ (run automatically by Gradle `preBuild` via `generateNativeKeys`), Android SDK (`compileSdk 36`, `buildToolsVersion 36.0.0`, `NDK 26.1.10909125`, `CMake 3.22.1`), and the bundled Gradle Wrapper (`gradlew` / `gradlew.bat`).
 
 To compile the Android client locally using dummy 32-byte placeholder secrets:
 
@@ -93,7 +93,7 @@ Submit the issued flag to verify completion and trigger the Hall of Fame debrief
 ## Scope, Privacy, & Abuse Prevention
 
 - **Rules of Engagement:** Testing must remain limited to binary analysis, protocol inspection, and controlled request crafting. Automated brute-force attacks, high-rate fuzzing, or denial-of-service testing against the live backend are strictly prohibited.
-- **Data Privacy:** This application does not collect or store personal data. Do not submit personal credentials or sensitive information in request payloads.
+- **Data Privacy:** This application does not use user accounts or collect persistent personal profiles, aside from ephemeral IP address processing for rate limiting described below. Do not submit personal credentials or sensitive information in request payloads.
 - **Rate Limiting & Telemetry:** Client IP addresses are processed ephemerally in distributed Redis state with automatic TTL expiration strictly to enforce rate limits and mitigate automated abuse. The mobile UI also enforces local request pacing to help avoid accidental server bans during normal use, while completed assessments are recorded solely through an anonymous global counter.
 
 ## Release Verification
