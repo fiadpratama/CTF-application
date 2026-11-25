@@ -1,8 +1,8 @@
 /**
  * Standalone HTTP server entry point.
- * 
- * Binds the Express application to a local port when executed directly,
- * or exports the application instance for serverless hosting environments (e.g., Vercel).
+ *
+ * Binds the Express application to a local port when executed directly.
+ * Serverless deployments on Vercel use `api/index.js` as their entry point.
  */
 const app = require('./src/app');
 

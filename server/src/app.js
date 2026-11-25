@@ -27,7 +27,7 @@ app.use('/api/vault', (_req, res, next) => {
 });
 
 app.use('/api/vault', rateLimitMiddleware, versionGateMiddleware);
-app.use(express.json({ limit: '10kb' }));
+app.use('/api/vault', express.json({ limit: '10kb' }));
 
 app.use('/api/vault', stage1Router);
 app.use('/api/vault', stage2Router);
