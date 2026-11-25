@@ -5,10 +5,15 @@ plugins {
 def keystorePropertiesFile = rootProject.file("keystore.properties")
 def keystoreProperties = new Properties()
 if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+    keystorePropertiesFile.withInputStream { stream ->
+        keystoreProperties.load(stream)
+    }
 }
 def hasReleaseKeystore = keystorePropertiesFile.exists() &&
-    keystoreProperties['storeFile'] != null &&
+    keystoreProperties['storeFile']?.toString()?.trim() &&
+    keystoreProperties['storePassword']?.toString()?.trim() &&
+    keystoreProperties['keyAlias']?.toString()?.trim() &&
+    keystoreProperties['keyPassword']?.toString()?.trim() &&
     file(keystoreProperties['storeFile']).exists()
 def requireReleaseKeystore = project.hasProperty('requireReleaseKeystore') &&
     project.property('requireReleaseKeystore').toString().toBoolean()
@@ -91,7 +96,7 @@ tasks.register('generateNativeKeys', Exec) {
 
     boolean isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
     if (isWindows) {
-        commandLine 'cmd', '/c', 'where py >nul 2>nul & if errorlevel 1 (python -B generate_keys.py) else (py -3 -B generate_keys.py)'
+        commandLine 'cmd', '/c', 'py -3 -c "import sys" >nul 2>nul & if errorlevel 1 (python -B generate_keys.py) else (py -3 -B generate_keys.py)'
     } else {
         commandLine 'bash', '-c', 'if command -v python3 >/dev/null 2>&1; then python3 -B generate_keys.py; else python -B generate_keys.py; fi'
     }

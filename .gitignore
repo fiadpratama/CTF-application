@@ -11,6 +11,8 @@ android_client/app/keystore.jks
 *.keystore
 .env*
 server/.env*
+!.env.example
+!server/.env.example
 
 # Android & Gradle
 *.iml

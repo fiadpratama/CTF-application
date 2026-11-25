@@ -14,6 +14,7 @@ function errorHandler(err, req, res, _next) {
     if (err && (err.status === 413 || err.type === 'entity.too.large')) {
         return res.status(413).json({ status: 413, error: "Payload Too Large", message: "Request payload exceeds 10kb limit" });
     }
+    console.error("[UNHANDLED_ERROR]", err && err.name ? err.name : "Error");
     return res.status(500).json({ status: 500, error: "Internal Server Error", message: "Internal system error" });
 }
 

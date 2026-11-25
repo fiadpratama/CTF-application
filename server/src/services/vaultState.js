@@ -108,12 +108,27 @@ async function issueSessionFlag(jti) {
 
     let candidateFlag = createFlagString();
     let flagKey = `flag:${candidateFlag}`;
-    let result = await redis.eval(ISSUE_FLAG_LUA, [usedKey, flagKey], [candidateFlag, '660', '900']);
-
-    if (result === -6) {
-        candidateFlag = createFlagString();
-        flagKey = `flag:${candidateFlag}`;
+    let result;
+    let status;
+    try {
         result = await redis.eval(ISSUE_FLAG_LUA, [usedKey, flagKey], [candidateFlag, '660', '900']);
+
+        if (result === -6) {
+            candidateFlag = createFlagString();
+            flagKey = `flag:${candidateFlag}`;
+            result = await redis.eval(ISSUE_FLAG_LUA, [usedKey, flagKey], [candidateFlag, '660', '900']);
+        }
+
+        if (typeof result === 'string' && result.length === 38 && /^FLAG\{[0-9a-f]{32}\}$/.test(result) && result !== candidateFlag) {
+            status = await redis.get(`flag:${result}`);
+        }
+    } catch (redisError) {
+        console.error("[VAULT_STATE_ERROR]", redisError.message);
+        return {
+            status: 503,
+            error: "Service Unavailable",
+            message: "Service temporarily unavailable, please retry shortly"
+        };
     }
 
     if (typeof result === 'string' && result.length === 38 && /^FLAG\{[0-9a-f]{32}\}$/.test(result)) {
@@ -121,7 +136,6 @@ async function issueSessionFlag(jti) {
             return { status: 200, flag: result };
         }
 
-        const status = await redis.get(`flag:${result}`);
         if (isValidFlagStatus(status)) {
             return { status: 200, flag: result };
         }
@@ -150,7 +164,17 @@ async function issueSessionFlag(jti) {
  */
 async function claimSolveFlag(flag) {
     const flagKey = `flag:${flag}`;
-    const result = await redis.eval(CLAIM_FLAG_LUA, [flagKey, 'stats:solves'], []);
+    let result;
+    try {
+        result = await redis.eval(CLAIM_FLAG_LUA, [flagKey, 'stats:solves'], []);
+    } catch (redisError) {
+        console.error("[VAULT_STATE_ERROR]", redisError.message);
+        return {
+            status: 503,
+            error: "Service Unavailable",
+            message: "Service temporarily unavailable, please retry shortly"
+        };
+    }
     const solveNumber = typeof result === 'number' ? result : Number(result);
 
     if (solveNumber === -1) {

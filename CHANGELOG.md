@@ -7,19 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.0.3] - 2026-11-23
+## [2.0.3] - 2026-11-25
 
-Standalone proxy-trust hardening, opt-in release keystore signing enforcement, contribution guidelines, and documentation accuracy refinements.
+Standalone proxy-trust hardening, opt-in release keystore signing enforcement, fail-closed Redis state handling, contribution guidelines, and documentation refinements.
 
 ### Added
 - **Contribution Guidelines (`CONTRIBUTING.md`):** Added formal contributor standards defining in-scope improvements versus intentional challenge mechanics, anti-spoiler and secret-isolation rules, toolchain requirements, and pull request verification procedures.
+- **Server Environment Template (`server/.env.example`, `.gitignore`):** Added a safe local environment variable template paired with `native-secrets.properties.example` for standalone server development.
 
 ### Changed
-- **Release Signing Enforcement (`android_client/app/build.gradle`):** Added an opt-in `-PrequireReleaseKeystore=true` Gradle property check that aborts release builds with a `GradleException` when `keystore.properties` or the target store file is absent, preventing accidental debug-signed release artifacts while preserving local debug-fallback builds by default.
-- **Privacy & Toolchain Documentation (`README.md`, `README.id.md`):** Clarified the Data Privacy section to explicitly account for ephemeral Redis IP processing under rate limiting, updated the build prerequisite from `Python 3` to `Python 3.9+` to match PEP 585 generic type annotations in `generate_keys.py`, and linked `CONTRIBUTING.md`.
+- **Release Signing Enforcement & Build Script Portability (`android_client/app/build.gradle`, `server/server.js`):** Added an opt-in `-PrequireReleaseKeystore=true` Gradle property check (requiring non-empty `storeFile`, `storePassword`, `keyAlias`, and `keyPassword`), closed the `keystore.properties` `InputStream` cleanly via `withInputStream`, improved Windows Python launcher detection (`py -3 -c "import sys"`), and clarified standalone vs. Vercel entry-point JSDoc in `server/server.js`.
+- **Privacy, Placeholder, & Toolchain Documentation (`README.md`, `README.id.md`, `CONTRIBUTING.md`):** Clarified the Data Privacy section to explicitly account for ephemeral Redis IP processing under rate limiting, updated the build prerequisite from `Python 3` to `Python 3.9+` to match PEP 585 generic type annotations in `generate_keys.py`, documented `server/.env.example` for local server pairing, and linked `CONTRIBUTING.md`.
 
 ### Security
 - **Conditional Proxy Trust (`server/src/app.js`):** Scoped `app.set('trust proxy', 1)` strictly to Vercel Edge environments (`VERCEL`) or explicit reverse-proxy deployments (`TRUST_PROXY=1`), leaving `trust proxy` disabled by default in standalone execution to prevent `X-Forwarded-For` header spoofing against `req.ip` rate limiting.
+- **Fail-Closed State Resilience & Scoped Body Parsing (`server/src/services/vaultState.js`, `server/src/app.js`, `server/src/middleware/errorHandler.js`):** Wrapped Redis operations in `issueSessionFlag()` and `claimSolveFlag()` with `try/catch` returning `HTTP 503 Service Unavailable` on connectivity faults, scoped `express.json({ limit: '10kb' })` strictly to `/api/vault` behind rate limiting and version gating, and logged unhandled error names safely without leaking internal details.
 
 ---
 
