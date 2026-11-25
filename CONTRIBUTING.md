@@ -16,7 +16,7 @@ To keep the assessment fair for all participants, public issues, commit messages
 
 - **No Spoilers or Walkthroughs:** Do not post challenge solutions, decoded protocol parameters, reverse-engineered native values, or solver scripts in GitHub Issues, Pull Requests, or commit descriptions.
 - **No Live Flags or Production Secrets:** Never include issued `FLAG{...}` strings, production cryptographic keys, or live session tokens recovered from the official release APK in any public submission.
-- **Placeholder Credentials Only:** Always use the dummy 32-byte placeholder configuration (`native-secrets.properties.example`) and mock local environment variables when building, testing, or demonstrating changes.
+- **Placeholder Credentials Only:** Always use the dummy 32-byte placeholder configuration (`native-secrets.properties.example` and `server/.env.example`) and mock local environment variables when building, testing, or demonstrating changes.
 
 ## Local Development & Standards
 

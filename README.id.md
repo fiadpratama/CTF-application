@@ -46,7 +46,7 @@ gradlew.bat assembleRelease    # Windows
 ```
 
 - **Penandatanganan Lokal (*Local Signing*):** Apabila berkas `android_client/keystore.properties` tidak ditemukan, Gradle otomatis menggunakan konfigurasi *debug signing* bawaan Android sehingga kompilasi lokal langsung berhasil. Untuk menandatangani dengan *keystore* kustom, buat `android_client/keystore.properties` berisi `storeFile`, `storePassword`, `keyAlias`, dan `keyPassword`.
-- **Memasangkan dengan Server Lokal:** APK hasil build lokal menanamkan kunci dummy dari `native-secrets.properties` dan menargetkan `https://server-umber-eta.vercel.app/api/vault` di `VaultApiClient.java`. APK ini tidak akan terautentikasi ke server produksi kecuali Anda mengubah `BASE_URL` dan menjalankan `server/` (`Node.js >= 20.0.0`) dengan environment variable yang selaras (`E2EE_KEY`, `BACKDOOR_CODE`, `SECRET_MULTIPLIER`, `JWT_SECRET`, serta kredensial Upstash Redis).
+- **Memasangkan dengan Server Lokal:** APK hasil build lokal menanamkan kunci dummy dari `native-secrets.properties` dan menargetkan `https://server-umber-eta.vercel.app/api/vault` di `VaultApiClient.java`. APK ini tidak akan terautentikasi ke server produksi kecuali Anda mengubah `BASE_URL` dan menjalankan `server/` (`Node.js >= 20.0.0`, misalnya menyalin `server/.env.example` menjadi `server/.env.local` dengan nilai `E2EE_KEY`, `BACKDOOR_CODE`, `SECRET_MULTIPLIER`, `JWT_SECRET`, serta kredensial Upstash Redis yang selaras).
 - **Lokasi Keluaran:** `android_client/app/build/outputs/apk/release/app-release.apk`
 </details>
 

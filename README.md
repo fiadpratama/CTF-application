@@ -46,7 +46,7 @@ gradlew.bat assembleRelease    # Windows
 ```
 
 - **Local Signing Behavior:** If `android_client/keystore.properties` is not present, Gradle automatically falls back to standard Android debug signing so local builds succeed out of the box. To sign with a custom keystore, create `android_client/keystore.properties` defining `storeFile`, `storePassword`, `keyAlias`, and `keyPassword`.
-- **Pairing with a Local Server:** A locally built APK embeds dummy secrets from `native-secrets.properties` and targets `https://server-umber-eta.vercel.app/api/vault` in `VaultApiClient.java`. It will not authenticate against production unless you update `BASE_URL` and run `server/` (`Node.js >= 20.0.0`, configuring matching `E2EE_KEY`, `BACKDOOR_CODE`, `SECRET_MULTIPLIER`, `JWT_SECRET`, and Upstash Redis credentials via environment variables).
+- **Pairing with a Local Server:** A locally built APK embeds dummy secrets from `native-secrets.properties` and targets `https://server-umber-eta.vercel.app/api/vault` in `VaultApiClient.java`. It will not authenticate against production unless you update `BASE_URL` and run `server/` (`Node.js >= 20.0.0`, e.g., copying `server/.env.example` to `server/.env.local` with matching `E2EE_KEY`, `BACKDOOR_CODE`, `SECRET_MULTIPLIER`, `JWT_SECRET`, and Upstash Redis credentials).
 - **Output Path:** `android_client/app/build/outputs/apk/release/app-release.apk`
 </details>
 
