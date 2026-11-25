@@ -9,8 +9,6 @@ const BACKDOOR_CODE = process.env.BACKDOOR_CODE;
 const MULTIPLIER_STRING = process.env.SECRET_MULTIPLIER || '';
 const SECRET_MULTIPLIER = Number(MULTIPLIER_STRING);
 const JWT_SECRET = process.env.JWT_SECRET;
-const UPSTASH_REDIS_REST_URL = (process.env.UPSTASH_REDIS_REST_URL || '').trim();
-const UPSTASH_REDIS_REST_TOKEN = (process.env.UPSTASH_REDIS_REST_TOKEN || '').trim();
 const MIN_VERSION_CODE = 8;
 const MAX_SAFE_SECRET_MULTIPLIER = Math.floor(Number.MAX_SAFE_INTEGER / 9999);
 
@@ -29,12 +27,6 @@ if (
 }
 if (!JWT_SECRET || JWT_SECRET.length < 32) {
     configErrors.push('JWT_SECRET must be at least 32 characters');
-}
-if (!UPSTASH_REDIS_REST_URL) {
-    configErrors.push('UPSTASH_REDIS_REST_URL is required');
-}
-if (!UPSTASH_REDIS_REST_TOKEN) {
-    configErrors.push('UPSTASH_REDIS_REST_TOKEN is required');
 }
 if (configErrors.length > 0) {
     throw new Error(`[CRITICAL] Invalid configuration: ${configErrors.join('; ')}`);

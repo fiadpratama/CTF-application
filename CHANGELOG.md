@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.0.3] - 2026-11-25
 
-Standalone proxy-trust hardening, opt-in release keystore signing enforcement, fail-closed Redis state handling, startup environment validation, contribution guidelines, and documentation refinements.
+Standalone proxy-trust hardening, opt-in release keystore signing enforcement, fail-closed Redis state handling, contribution guidelines, and documentation refinements.
 
 ### Added
 - **Contribution Guidelines (`CONTRIBUTING.md`):** Added formal contributor standards defining in-scope improvements versus intentional challenge mechanics, anti-spoiler and secret-isolation rules, toolchain requirements, and pull request verification procedures.
@@ -21,7 +21,7 @@ Standalone proxy-trust hardening, opt-in release keystore signing enforcement, f
 
 ### Security
 - **Conditional Proxy Trust (`server/src/app.js`):** Scoped `app.set('trust proxy', 1)` strictly to Vercel Edge environments (`VERCEL`) or explicit reverse-proxy deployments (`TRUST_PROXY=1`), leaving `trust proxy` disabled by default in standalone execution to prevent `X-Forwarded-For` header spoofing against `req.ip` rate limiting.
-- **Fail-Closed State Resilience, Scoped Body Parsing, & Startup Validation (`server/src/services/vaultState.js`, `server/src/app.js`, `server/src/config.js`, `server/src/middleware/errorHandler.js`):** Wrapped Redis operations in `issueSessionFlag()` and `claimSolveFlag()` with `try/catch` returning `HTTP 503 Service Unavailable` on connectivity faults, scoped `express.json({ limit: '10kb' })` strictly to `/api/vault` behind rate limiting and version gating, enforced startup presence checks for `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`, and logged unhandled error names safely without leaking internal details.
+- **Fail-Closed State Resilience & Scoped Body Parsing (`server/src/services/vaultState.js`, `server/src/app.js`, `server/src/middleware/errorHandler.js`):** Wrapped Redis operations in `issueSessionFlag()` and `claimSolveFlag()` with `try/catch` returning `HTTP 503 Service Unavailable` on connectivity faults, scoped `express.json({ limit: '10kb' })` strictly to `/api/vault` behind rate limiting and version gating, and logged unhandled error names safely without leaking internal details.
 
 ---
 
